@@ -1,0 +1,12 @@
+#compdef find_cruft
+_arguments -s -S : \
+'(* -)'{'--help','-h'}'[print a brief help]' \
+'(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
+'(* -)'{'--version','-V'}'[print version and exit]' \
+'*'{'-v','--verbose'}'[be more verbose (accumulative)]' \
+{'(--root)-r+','(-r)--root='}'[chroot DIR]:root directory:_files -/' \
+'(--nocfg -C)*'{'-c+','--cfg='}'[add CONFIGFILE to list]:configfile:_files' \
+{'(--nocfg)-c','(-c)--nocfg'}'[clear list of configfiles]' \
+'(--Output -O '{'--output)-o+','-o)--output='}'[append output to FILE]:outputfile (appending):_files' \
+'(--output -o '{'--Output)-O+','-O)--Output='}'[output to FILE (clobbering)]:outputfile (clobbering):_files' \
+'*:dirs:_files -/'
