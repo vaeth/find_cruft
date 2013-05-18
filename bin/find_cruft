@@ -1,13 +1,14 @@
 #! /usr/bin/env perl
 use strict;
+use warnings;
 use integer;
 use Pod::Usage;
 use Getopt::Long;
 use File::Find;
-use Cwd;
+use Cwd 'abs_path';
 
 sub version {
-	print "find_cruft 1.0\n";
+	print "find_cruft 2.0\n";
 	exit 0
 }
 
@@ -80,10 +81,13 @@ outputs the parsed configuration files.
 =item B<-vv>
 outputs in addition B<$root> and the parsed arguments
 
-=item B<-vv>
+=item B<-vvv>
 outputs in addition the data defined in the configuration files.
 
 =back
+
+These additional informations are sent to B<STDERR> unless you use an
+option to specify an output file in which case they are sent to B<STDOUT>.
 
 =item B<--version> or B<-V>
 
@@ -98,7 +102,7 @@ The idea is that this should save you a B<chroot> if you want to access
 a chroot-installation of Gentoo.
 However, this will not always give the desired results (since e.g. absolute
 symlinks are not always be treated correctly), so you should be sceptical
-whether the cruft list is correct.
+whether the cruft list is correct: There may be false positives and negatives.
 
 =item B<--cfg>[B<=>I<config-file>] or B<-c> I<config-file>
 
@@ -133,17 +137,22 @@ The default config-files are (read in this order):
 
 =item F<$/etc/find_cruft.pl>
 
-=item F<$/etc/find_cruft-local.pl>
+=item F<$$/etc/find_cruft.d/*.pl>
 
 =item F<~/.find_cruft.pl>
 
 =back
 
-The magic beginning B<$> means the value specified in B<--root>.
+The magic beginning B<$> means the value specified in B<--root>,
+and the magic beginning B<$$> means in addition that all *.pl files in this
+directory are read recursively in alphabetical order.
+The magic beginning B<//> (not used in the defaults) is as B<$$> but
+ignoring B<--root>.
 Further files can be added with the B<--cfg> option.
 The list can be cleaned up with the B<--nocfg> option.
 
 The config-files can be any valid perl code.
+They are run in the B<CFG::> namespace.
 They get passed the following arrays with some default values,
 and their purpose is to enlarge these arrays to match the local system.
 (They can also shrink these arrays, of course, if the user wants to
@@ -155,8 +164,8 @@ get reported files in certain directories as cruft.)
 Contains files/directories which should be cut recursively.
 The entries must be the full paths (without reflecting B<--root>);
 no wildcards are allowed.
-Empty entries are ignored, and redundant B</> symbols in entries are
-automatically removed.
+Undefined or Empty entries are ignored, and redundant B</> symbols in
+entries are automatically removed.
 Increasing this list (even dramatically) has almost no influence on the speed.
 
 =item B<@cutre>
@@ -174,13 +183,22 @@ or otherwise the effect of B<@cut>/B<@cutre> is ignored.
 
 =item B<@symlinks>
 This array consists of entries of the form
-['I<destination1>', 'I<destination2>', ...]
-It means that in the database the path beginnings I<destination1> and
-I<destination2> can both be used equivalently due to symlinks.
-If there are several symlink combinations used, you must list them all here.
-Every entry in this list increases time and memory requirements dramatically:
-This is the reason why this is not automatically detected but only those
-symlinks actually used differently in ebuilds should be listed.
+['I<link1>', 'I<link2>', ..., 'I<directory>']
+It means that in the database the path beginnings I<link1> of I<link2>
+correspond due to symlinks to files in I<directory>.
+Only absolute paths are allowed.
+The directory B<$root>I<directory> must indeed exist and not contain any
+symlink in a path component or the entry is ignored.
+(In constrast, I<link1>, I<link2>, ... need not exist to allow that they are
+removed later after an emerge.)
+If there are several symlink combinations used, you must list them all here;
+there is intentionally no algorithm which creates combinations since this
+can lead to huge or even endless loops while most combinations are actually
+not necessary.
+It is not really bad if you forget to add a symlink here: The only negative
+effect is that files installed by ebuilds into the symlink instead of the
+directory will be reported as cruft, so you just see your mistake from
+the output list and can fix it (or live with the false positives).
 
 =item B<@follow>
 Contains symlinks which should be followed when getting the file tree.
@@ -192,33 +210,46 @@ Increasing this list even dramatically has almost no influence on the speed
 
 =back
 
-The B<--root> path is accessible as B<$root>.
-Note that you can use the push function of perl to append to an existing array.
-
-Typical Examples:
+The B<--root> path is accessible as B<$root> (i.e. B<$CFG::root>).
+Note that you can use perl's B<push()> to append to an existing array.
+Two further helper functions are defined:
 
 =over 8
 
-=item B<push(@cut, '/dev', '/proc', '/sys', '/run', '/home', '/srv', '/tmp'>
+=item B<remove_root(>I<string>B<)>
 
-=item B<  '/var/tmp', '/boot', '/media', '/mnt',>
+This will return I<string>, but if I<string> starts with B<$root>
+this part is removed.
+This is usuful e.g. if you resolve symlinks with B<Cwd::abs_path> and do not
+know whether the result points to a subdirectory of B<$root>
+
+=item B<push_without_root(>I<@array>B<, >I<list>B<)>
+
+This function is like B<push()> except that B<remove_root> is applied to all
+pushed arguments and except that undefined or empty strings are not pushed.
+
+=back
+
+For examples, we mainly refer to the default F</etc/find_cruft.pl>.
+Anyway, here are some typical examples:
+
+=over 8
+
+=item B<push(@cut, '/dev', '/proc', '/sys', '/run', '/media', '/mnt', '/tmp');>
+
+The above directories are the default in B<@cut>: You need not add them.
+The reason for this default is that it usually never makes sense
+(and can even cause problems) trying to scan these directories.
+Remove them from B<@cut> only if you know what you are doing!
+
+=item B<push(@cut, '/home', '/root', '/srv', '/boot', '/var/tmp',>
 
 =item B<  '/var/db', '/var/cache/edb');>
 
-=item B<local %ENV = %ENV; $ENV{'EIX_PREFIX'} = $root;>
-
-=item B<push(@cut, `PRINT_APPEND= eix --print PORTDIR 2E<gt>/dev/null`);>
-
-=item B<my $kernel_dir = $ENV{'KERNEL_DIR'};>
-
-=item B<$kernel_dir = '/usr/src/linux' unless(defined($kernel_dir));>
-
-=item B<push(@cut, $kernel_dir, Cwd::abs_path($root . $kernel_dir));>
-
-=item B<push(@cut, $ENV{'KBUILD_OUTPUT'};>
-
-Examples similar to the above ones are already filled into B<@cut> by default.
-We simplified some code here by using that empty entries are ignored.
+On most gentoo systems you will never want to consider stuff in these
+directories never as cruft.
+Therefore, these directories (and some more) are added to B<@cut> by
+the default F</etc/find_cruft.pl>.
 
 =item B<push(@cut, '/var/cache/fontconfig', '/usr/share/mime',>
 
@@ -226,39 +257,43 @@ We simplified some code here by using that empty entries are ignored.
 
 The above directories usually contain a lot of false positives which you might
 want to suppress in the output unless you do a very rigorous cleanup.
+However, since in a sense all these directories are cruft, they are not
+contained in the default setting (also not in F</etc/find_cruft.pl>).
+Therefore you might want to put this into F</etc/find_cruft.d/99-local.pl>).
 
-=item B<push(@cut, '/etc/find_cruft-local.pl');>
+=item B<push(@cut, '/etc/find_cruft.d/99-local.pl');>
 
-If you always want to suppress the output of this file.
+If you always want to suppress the output of that file.
 
 =item B<push(@cutre, '/\.keep[^/]*$', qr!/joe[^/]*$!i);>
 
 Files/dirs with names F<.keep*>, F<joe*>, F<Joe*>, F<JOE*>, ... are ignored.
 
-=item B<push(@cutreexceptions, '^/\.keep$', qr!/jOe[^/]*$!);>
+=item B<push(@cutexceptions, '^/\.keep$', qr!/jOe[^/]*$!);>
 
 The path B</.keep> (in the B<--root> directory) and the filenames B<jOe*>
 are exceptions from the above general rules in B<@cutre>.
 
-=item B<push(@symlinks, ['/lib', '/lib64'], ['/usr/lib', '/usr/lib64'],>
+=item B<push(@symlinks, ['/usr/X11', '/usr/X11/X11', '/usr']);>
 
-=item B<  ['/usr/lib/gcc', '/usr/lib/gcc-lib', '/usr/lib64/gcc',>
-
-=item B<    '/usr/lib64/gcc-lib'],>
-
-=item B<  ['/usr/doc', '/usr/share/doc'], ['/usr/man', '/usr/share/man'],>
-
-=item B<  ['/usr/info', '/usr/share/info'], ['/usr/tmp', '/usr/var/tmp'],>
-
-=item B<  ['/var/mail', '/var/spool/mail']);>
-
-The above entries are default: They mean that on most gentoo installations
-there are symlinks B</lib -E<gt> /lib64> etc. so that e.g. if an ebuild
-installs into B</lib> it is as good as installing into B</lib64>.
+Use this if you have a very old Gentoo installations with a symlink from
+B</usr/X11> to B</usr>.
+This  means that if an ebuild had installed into B</usr/X11> or
+B</usr/X11/X11> or into B</usr/X11/X11/X11> or ... it actually installed into
+B</usr>, and so the corresponding file in B</usr> is actually not cruft.
+Note that in theory the list of admissible directories is infinitely long,
+but in practice, there will probably not even be an ebuild which installs
+into B</usr/X11/X11/X11> so that it is reasonable to consider only the
+first two cases as symlinks.
+Probably even the second entry B</usr/X11/X11> is not necessary in practice
+(unless you have strange ebuilds from some overlays).
+However, recently new ebuilds will never install into B</usr/X11> so that
+usually the above customization is not necessary.
 
 =item B<push(@follow, '/etc', '/usr/share/texmf-dist');>
 
-If these paths are e.g. symlinks to a separate partition.
+Put such things into B</etc/find_cruft.local.pl> if on you machine
+F</etc> and F</usr/share/texmf-dist> are symlinks to e.g. separate partitions.
 
 =back
 
@@ -277,12 +312,12 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 my @configs = (
 	'$/etc/find_cruft.pl',
-	'$/etc/find_cruft-local.pl',
+	'$$/etc/find_cruft.d',
 	'~/.find_cruft.pl'
 );
 my $outputfile = '';
 my $openmode = '>>';
-my $verbose = '';
+my $verbose = 0;
 our $root = '';
 
 # Parse Options:
@@ -292,8 +327,8 @@ GetOptions(
 	'help|h', sub { pod2usage(1) },
 	'man|?', sub { pod2usage(-verbose => 2) },
 	'version|V', \&version,
-	'outputfile|o', sub { $outputfile = @_[1]; $openmode = '>>' },
-	'Outputfile|O', sub { $outputfile = @_[1]; $openmode = '>' },
+	'outputfile|o', sub { $outputfile = $_[1]; $openmode = '>>' },
+	'Outputfile|O', sub { $outputfile = $_[1]; $openmode = '>' },
 	'root|r=s', \$root,
 	'cfg|c=s', \@configs,
 	'nocfg|C', sub { @configs = () },
@@ -304,12 +339,18 @@ pod2usage(2) unless(scalar(@ARGV));
 
 # Sanitize parsed variables:
 
-$root = Cwd::abs_path($root) unless($root eq '');
+$root = abs_path($root) unless($root eq '');
 $root =~ s/\/$//;
 
 # Append $root to parsed arguments:
 
-&RootArray(\@ARGV);
+for my $dir (@ARGV) {
+	if($dir =~ /^\//) {
+		$dir = $root . $dir unless($root eq '')
+	}
+	$dir = abs_path($dir);
+	&Fatal("$dir is not a directory") unless(-d $dir)
+}
 
 # Output results of parsing arguments and configs:
 
@@ -327,51 +368,32 @@ my %valid_types = ();
 # The default Config:
 {
 	package CFG;
-	use Cwd;
 	our $root = $::root;
-	our @cut = ();
+	our @cut = (
+		'/dev',
+		'/proc',
+		'/sys',
+		'/run',
+		'/media',
+		'/mnt',
+		'/tmp');
 	our @cutre = ();
-	our @cutexceptions;
+	our @cutexceptions = ();
 	our @follow = ();
 	our @symlinks = ();
-	push(@cut, '/dev', '/proc', '/sys', '/run', '/home', '/srv', '/tmp',
-		'/var/tmp', '/boot', '/media', '/mnt',
-		'/var/db', '/var/cache/edb');
-	local %ENV = %ENV;
-	$ENV{'EIX_PREFIX'} = $root;
-	$ENV{'PRINT_APPEND'} = '';
-	my $portdir = `eix --print PORTDIR 2>/dev/null`;
-	if($portdir eq '') {
-		$portdir = `portageq portdir 2>/dev/null`;
-		chomp($portdir);
-		$portdir = '/usr/portage' if($portdir eq '')
+	sub remove_root($) {
+		my ($string) = @_;
+		return '' unless(defined($string));
+		return (($root ne substr($string, 0, length($root))) ?
+			$string : substr($string, length($root)))
 	}
-	push(@cut, $portdir);
-	my $kernel_dir = $ENV{'KERNEL_DIR'};
-	$kernel_dir = '/usr/src/linux'
-		unless(defined($kernel_dir) && ($kernel_dir ne ''));
-	push(@cut, $kernel_dir);
-	$kernel_dir = Cwd::abs_path($root . $kernel_dir);
-	push(@cut, $kernel_dir, substr($kernel_dir, length($root)))
-		if(defined($kernel_dir) && ($kernel_dir ne ''));
-	my $kbuild_output = $ENV{'KBUILD_OUTPUT'};
-	if(defined($kbuild_output) && ($kbuild_output ne '')) {
-		push(@cut, $kbuild_output);
-		$kbuild_output = Cwd::abs_path($root . $kbuild_output);
-		push(@cut, $kbuild_output,
-			substr($kbuild_output, length($root)))
-			if(defined($kbuild_output) && ($kbuild_output ne ''))
+	sub push_without_root(\@@) {
+		my ($array, @rest) = @_;
+		for my $i (@rest) {
+			my $j = remove_root($i);
+			push(@$array, $j) unless($j eq '')
+		}
 	}
-	push(@symlinks,
-		['/lib', '/lib64'],
-		['/usr/lib', '/usr/lib64'],
-		['/usr/lib/gcc', '/usr/lib/gcc-lib',
-			'/usr/lib64/gcc', '/usr/lib64/gcc-lib'],
-		['/usr/doc', '/usr/share/doc'],
-		['/usr/man', '/usr/share/man'],
-		['/usr/info', '/usr/share/info'],
-		['/usr/tmp', '/usr/var/tmp'],
-		['/var/mail', '/var/spool/mail']);
 }
 
 # Read config files:
@@ -382,17 +404,23 @@ my %valid_types = ();
 
 my %cut = ();
 my %follow = ();
+my @symlinks = ();
+my @cutre = ();
+my @cutexceptions = ();
 &Transform(\@CFG::cut, \%cut);
 &Transform(\@CFG::follow, \%follow);
-&CompileRe(\@CFG::cutre);
-&CompileRe(\@CFG::cutexceptions);
+&CompileRe(\@CFG::cutre, \@cutre);
+&CompileRe(\@CFG::cutexceptions, \@cutexceptions);
+&PrepareSymlinks(\@CFG::symlinks, \@symlinks);
 
 # Output result of config files
 
+&Verbose('', 2);
 &Verbose(['follow', \%follow], 2);
 &Verbose(['cut', \%cut], 2);
-&Verbose(['cutre', \@CFG::cutre], 2);
-&Verbose(['cutexceptions', \@CFG::cutexceptions], 2);
+&Verbose(['cutre', \@cutre], 2);
+&Verbose(['cutexceptions', \@cutexceptions], 2);
+&Verbose(['symlinks', \@symlinks], 2);
 
 # Files owned by portage are no cruft:
 
@@ -425,8 +453,8 @@ sub Fatal {
 # Second argument: minimal $verbose level (0 if not specified)
 
 sub Verbose {
-	return if($verbose <= $_[1]);
-	my $data = $_[0];
+	return if(($verbose == 0) || ((scalar(@_) >= 2) && ($verbose <= $_[1])));
+	my $data = scalar(@_) ? $_[0] : '';
 	unless(ref($data) eq 'ARRAY') {
 		if($outputfile) {
 			print($data, "\n")
@@ -440,7 +468,17 @@ sub Verbose {
 		return unless(scalar(@$ref));
 		&Verbose('@' . $title . ':');
 		for my $i (@$ref) {
-			&Verbose($i)
+			if(ref($i) ne 'ARRAY') {
+				&Verbose($i)
+			} else {
+				my $s = '[';
+				my $last = scalar(@$i) - 1;
+				for(my $j = 0; $j < $last; ++$j) {
+					$s .= $i->[$j];
+					$s .= ', '
+				}
+				&Verbose($s . $i->[$last] . ']')
+			}
 		}
 		&Verbose();
 		return
@@ -466,39 +504,105 @@ sub Normalize {
 	$$ref = '/' if($$ref eq '')
 }
 
-# Apply ~/ and $/ magic to \$filaneme and normalize:
-
-sub Magic {
-	my ($ref) = @_;
-	if($$ref =~ s/^\$//) {
-		$$ref = $root . $$ref
-	}
-	if($$ref =~ s/^\~//) {
-		$$ref = $home . $$ref
-	}
-	&Normalize($ref)
-}
-
 # Transform \@array into \%hash of undef values; Normalize entries:
 
 sub Transform {
 	my ($array, $hash) = @_;
 	for my $i (@$array) {
-		next if($i eq '');
+		next unless(defined($i) && ($i ne ''));
 		&Normalize(\$i);
 		${$hash}{$i} = undef;
 	}
 	@$array = ();
 }
 
-# Compile all regular expresssions in \@arg if not already compiled:
+# Compile all regular expresssions from \@array into \@output if not compiled:
 
 sub CompileRe {
-	my ($array) = @_;
+	my ($array, $output) = @_;
 	for my $i (@$array) {
-		unless(ref $i eq 'Regexp') {
-			$i = qr/$i/;
+		next unless(defined($i));
+		if(ref($i) eq 'Regexp') {
+			push(@$output, $i)
+		} elsif($i ne '') {
+			push(@$output, qr/$i/)
 		}
+	}
+	@$array = ();
+}
+
+# Transform \@symlinks into \@output; Normalize entries:
+
+sub PrepareSymlinks {
+	my ($array, $output) = @_;
+	for my $i (@$array) {
+		next unless(defined($i) && (ref($i) eq 'ARRAY'));
+		my $r = [];
+		my $last = scalar(@$i) - 1;
+		for(my $j = 0; $j <= $last; ++$j) {
+			my $s = $i->[$j];
+			next unless(defined($s) && (substr($s, 0, 1) eq '/'));
+			&Normalize(\$s);
+			if($j < $last) {
+				push(@$r, $s)
+			} elsif(scalar($r)) {
+				my $dest = $root . $s;
+				if((-d $dest) && (abs_path($dest) eq $dest)) {
+					# destination is dir without symlinks
+					push(@$r, $s);
+					push(@$output, $r)
+				}
+			}
+		}
+	}
+	@$array = ();
+}
+
+# The main function to read a configuration file:
+
+sub ReadCfgFile {
+	my ($file) = @_;
+	$file = abs_path($file);
+	unless(-f $file) {
+		&Verbose("skipping config file $file (not a file)");
+		return
+	}
+	&Verbose("reading config file $file");
+	package CFG;
+	our $root = $::root;
+	our @cut;
+	our @cutre;
+	our @cutexceptions;
+	our @follow;
+	our @symlinks;
+	unless(my $return = do($file)) {
+		die "error parsing $file: $@\nstopped" if($@);
+		die "error running $file\nstopped"
+			if(defined($return) && !$return)
+	}
+}
+
+# The main function to read a configuration directory:
+
+sub ReadCfgDir {
+	my ($dir) = @_;
+	$dir = abs_path($dir);
+	unless(-d $dir) {
+		&Verbose("skipping config dir: $dir (not a directory)");
+		return
+	}
+	&Verbose("reading config dir: $dir");
+	my @cfgs;
+	find({
+		no_chdir => 1,
+		follow => 1,
+		follow_skip => 2,
+		dangling_symlinks => '',
+		wanted => sub {
+			push(@cfgs, $_) if(/\.pl$/ && (-f $_))
+		}}, ($dir));
+	for my $i (sort(@cfgs)) {
+		&ReadCfgFile($i)
 	}
 }
 
@@ -506,38 +610,16 @@ sub CompileRe {
 
 sub ReadCfg {
 	for my $file (@configs) {
-		&Magic(\$file);
-		&Verbose("reading configuration $file");
-		{
-			package CFG;
-			our $root = $::root;
-			our @cut;
-			our @cutre;
-			our @cutexceptions;
-			our @follow;
-			our @symlinks;
-			unless(my $return = do($file)) {
-				die "error parsing $file: $@\nstopped" if($@);
-				die "error running $file\nstopped"
-					if(defined($return) && !$return)
-			}
+		my $two = substr($file, 0, 2);
+		if($two eq '$/') {
+			ReadCfgFile($root . substr($file, 1))
+		} elsif ($two eq '~/') {
+			ReadCfgFile($home . substr($file, 1))
+		} elsif ($two eq '$$') {
+			ReadCfgDir($root . substr($file, 2))
+		} elsif ($two eq '//') {
+			ReadCfgDir(substr($file, 2))
 		}
-	}
-}
-
-# Append $root to all entries in passed array reference.
-
-sub RootArray {
-	my ($dirs) = @_;
-	my $cwd = undef;
-	for my $dir (@$dirs) {
-		if($dir =~ /^\//) {
-			$dir = $root . $dir unless($root eq '')
-		} else {
-			$cwd = $root . cwd() unless(defined($cwd));
-			$dir = $cwd . '/' . $dir
-		}
-		&Normalize(\$dir)
 	}
 }
 
@@ -558,19 +640,20 @@ sub WantedSkip {
 			next
 		}
 		$skip{$path} = undef;
-		for my $i (@CFG::symlinks) {
-			my $rest = undef;
-			for my $j (@$i) {
-				if(substr($path, 0, length($j)) eq $j) {
-					$rest = substr($path, length($j));
-					last
-				}
+		for my $i (@symlinks) {
+			my $length = 0;
+			my $last = scalar(@$i) - 1;
+			for(my $j = 0; $j < $last; ++$j) {
+				my $s = $i->[$j];
+				my $l = length($s);
+				$length = $l if(($length <= $l) &&
+					((($s . '/') eq substr($path, 0, $l + 1))
+					|| ($s eq $path)))
 			}
-			next unless(defined($rest));
+			next if($length == 0);
+			my $rest = substr($path, $length);
 			if((substr($rest, 0, 1) eq '/') || ($rest eq '')) {
-				for my $j (@$i) {
-					$skip{$j . $rest} = undef
-				}
+				$skip{$i->[$last] . $rest} = undef
 			}
 		}
 	}
@@ -601,10 +684,10 @@ sub MatchArray {
 # The main function to process the file tree:
 
 sub WantedFiles {
-	my $path = substr($_, length($root));
+	my $path = CFG::remove_root($_);
 	return if(($path eq '') or ($path eq '/'));
-	if(exists($cut{$path}) || &MatchArray(\$path, \@CFG::cutre)) {
-		unless(&MatchArray(\$path, \@CFG::cutexceptions)) {
+	if(exists($cut{$path}) || &MatchArray(\$path, \@cutre)) {
+		unless(&MatchArray(\$path, \@cutexceptions)) {
 			$File::Find::prune = 1;
 			return
 		}
@@ -625,7 +708,7 @@ sub WantedFiles {
 
 sub ProcessDirs {
 	my ($dirs) = @_;
-	&Verbose('Processing file tree');
+	&Verbose("Processing file tree\n");
 	find({
 		no_chdir => 1,
 		follow_fast => 1,
