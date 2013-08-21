@@ -5,11 +5,12 @@ use integer;
 use Pod::Usage;
 use Getopt::Long;
 use File::Find;
+use File::Spec;
 use Cwd 'abs_path';
 
 sub version {
-	print "find_cruft 2.0\n";
-	exit 0
+	print "find_cruft 2.1\n";
+	exit(0)
 }
 
 =head1 NAME
@@ -349,14 +350,14 @@ for my $dir (@ARGV) {
 		$dir = $root . $dir unless($root eq '')
 	}
 	$dir = abs_path($dir);
-	&Fatal("$dir is not a directory") unless(-d $dir)
+	&fatal("$dir is not a directory") unless(-d $dir)
 }
 
 # Output results of parsing arguments and configs:
 
-&Verbose('', 1);
-&Verbose('$root: ' . $root . "\n", 1) unless($root eq '');
-&Verbose(['ARGV', \@ARGV], 1);
+&verbose('', 1);
+&verbose('$root: ' . $root . "\n", 1) unless($root eq '');
+&verbose(['ARGV', \@ARGV], 1);
 
 # Global variables;
 
@@ -364,6 +365,7 @@ my $fh = undef;
 my $home = $ENV{'HOME'};
 my %skip = ();
 my %valid_types = ();
+my $rootdir = File::Spec->rootdir();
 
 # The default Config:
 {
@@ -398,43 +400,43 @@ my %valid_types = ();
 
 # Read config files:
 
-&ReadCfg;
+&read_cfg;
 
-# Transform configuration data:
+# transform configuration data:
 
 my %cut = ();
 my %follow = ();
 my @symlinks = ();
 my @cutre = ();
 my @cutexceptions = ();
-&Transform(\@CFG::cut, \%cut);
-&Transform(\@CFG::follow, \%follow);
-&CompileRe(\@CFG::cutre, \@cutre);
-&CompileRe(\@CFG::cutexceptions, \@cutexceptions);
-&PrepareSymlinks(\@CFG::symlinks, \@symlinks);
+&transform(\@CFG::cut, \%cut);
+&transform(\@CFG::follow, \%follow);
+&compile_re(\@CFG::cutre, \@cutre);
+&compile_re(\@CFG::cutexceptions, \@cutexceptions);
+&prepare_symlinks(\@CFG::symlinks, \@symlinks);
 
 # Output result of config files
 
-&Verbose('', 2);
-&Verbose(['follow', \%follow], 2);
-&Verbose(['cut', \%cut], 2);
-&Verbose(['cutre', \@cutre], 2);
-&Verbose(['cutexceptions', \@cutexceptions], 2);
-&Verbose(['symlinks', \@symlinks], 2);
+&verbose('', 2);
+&verbose(['follow', \%follow], 2);
+&verbose(['cut', \%cut], 2);
+&verbose(['cutre', \@cutre], 2);
+&verbose(['cutexceptions', \@cutexceptions], 2);
+&verbose(['symlinks', \@symlinks], 2);
 
 # Files owned by portage are no cruft:
 
-&FillSkip;
+&fill_skip;
 
 # Process filesystem:
 
 if($outputfile ne '') {
 	open($fh, $openmode, $outputfile) or
-		&Fatal("cannot open $openmode$outputfile: $!");
-	&ProcessDirs(\@ARGV);
+		&fatal("cannot open $openmode$outputfile: $!");
+	&process_dirs(\@ARGV);
 	close($fh)
 } else {
-	&ProcessDirs(\@ARGV)
+	&process_dirs(\@ARGV)
 }
 
 #
@@ -443,16 +445,16 @@ if($outputfile ne '') {
 
 # Output fatal error and die:
 
-sub Fatal {
+sub fatal {
 	print(STDERR 'fatal: ', $_[0], "\n");
 	exit(1)
 }
 
-# Output Verbose information:
+# Output verbose information:
 # First argument: string or ['name', \@array ] or ['name', \%hash ]
 # Second argument: minimal $verbose level (0 if not specified)
 
-sub Verbose {
+sub verbose {
 	return if(($verbose == 0) || ((scalar(@_) >= 2) && ($verbose <= $_[1])));
 	my $data = scalar(@_) ? $_[0] : '';
 	unless(ref($data) eq 'ARRAY') {
@@ -466,10 +468,10 @@ sub Verbose {
 	my ($title, $ref) = @$data;
 	if(ref($ref) eq 'ARRAY') {
 		return unless(scalar(@$ref));
-		&Verbose('@' . $title . ':');
+		&verbose('@' . $title . ':');
 		for my $i (@$ref) {
 			if(ref($i) ne 'ARRAY') {
-				&Verbose($i)
+				&verbose($i)
 			} else {
 				my $s = '[';
 				my $last = scalar(@$i) - 1;
@@ -477,40 +479,37 @@ sub Verbose {
 					$s .= $i->[$j];
 					$s .= ', '
 				}
-				&Verbose($s . $i->[$last] . ']')
+				&verbose($s . $i->[$last] . ']')
 			}
 		}
-		&Verbose();
+		&verbose();
 		return
 	}
 	if(ref($ref) eq 'HASH') {
 		return unless(scalar(%$ref));
-		&Verbose('@' . $title . ':');
+		&verbose('@' . $title . ':');
 		for my $i (sort(keys(%$ref))) {
-			&Verbose($i)
+			&verbose($i)
 		}
-		&Verbose();
+		&verbose();
 		return
 	}
 }
 
-# Normalize \$filename by removing redundant / symbols:
+# return normalized \$filename (but keeping /../ for symlinks)
 
-sub Normalize {
-	my ($ref) = @_;
-	$$ref =~ s/\/\.\//\//g;
-	$$ref =~ s/\/\/+/\//g;
-	$$ref =~ s/\/$//g;
-	$$ref = '/' if($$ref eq '')
+sub normalized {
+	my $res = File::Spec->canonpath($_[0]);
+	return (($res eq '') ? $rootdir : $res)
 }
 
-# Transform \@array into \%hash of undef values; Normalize entries:
+# Transform \@array into \%hash of undef values; normalized entries:
 
-sub Transform {
+sub transform {
 	my ($array, $hash) = @_;
 	for my $i (@$array) {
 		next unless(defined($i) && ($i ne ''));
-		&Normalize(\$i);
+		$i = &normalized($i);
 		${$hash}{$i} = undef;
 	}
 	@$array = ();
@@ -518,7 +517,7 @@ sub Transform {
 
 # Compile all regular expresssions from \@array into \@output if not compiled:
 
-sub CompileRe {
+sub compile_re {
 	my ($array, $output) = @_;
 	for my $i (@$array) {
 		next unless(defined($i));
@@ -531,9 +530,9 @@ sub CompileRe {
 	@$array = ();
 }
 
-# Transform \@symlinks into \@output; Normalize entries:
+# Transform \@symlinks into \@output; normalized entries:
 
-sub PrepareSymlinks {
+sub prepare_symlinks {
 	my ($array, $output) = @_;
 	for my $i (@$array) {
 		next unless(defined($i) && (ref($i) eq 'ARRAY'));
@@ -541,8 +540,8 @@ sub PrepareSymlinks {
 		my $last = scalar(@$i) - 1;
 		for(my $j = 0; $j <= $last; ++$j) {
 			my $s = $i->[$j];
-			next unless(defined($s) && (substr($s, 0, 1) eq '/'));
-			&Normalize(\$s);
+			next unless(defined($s) && File::Spec->file_name_is_absolute($s));
+			$s = &normalized($s);
 			if($j < $last) {
 				push(@$r, $s)
 			} elsif(scalar($r)) {
@@ -560,14 +559,14 @@ sub PrepareSymlinks {
 
 # The main function to read a configuration file:
 
-sub ReadCfgFile {
+sub read_cfg_file {
 	my ($file) = @_;
 	$file = abs_path($file);
 	unless(-f $file) {
-		&Verbose("skipping config file $file (not a file)");
+		&verbose("skipping config file $file (not a file)");
 		return
 	}
-	&Verbose("reading config file $file");
+	&verbose("reading config file $file");
 	package CFG;
 	our $root = $::root;
 	our @cut;
@@ -584,14 +583,14 @@ sub ReadCfgFile {
 
 # The main function to read a configuration directory:
 
-sub ReadCfgDir {
+sub read_cfg_dir {
 	my ($dir) = @_;
 	$dir = abs_path($dir);
 	unless(-d $dir) {
-		&Verbose("skipping config dir: $dir (not a directory)");
+		&verbose("skipping config dir: $dir (not a directory)");
 		return
 	}
-	&Verbose("reading config dir: $dir");
+	&verbose("reading config dir: $dir");
 	my @cfgs;
 	find({
 		no_chdir => 1,
@@ -602,30 +601,30 @@ sub ReadCfgDir {
 			push(@cfgs, $_) if(/\.pl$/ && (-f $_))
 		}}, ($dir));
 	for my $i (sort(@cfgs)) {
-		&ReadCfgFile($i)
+		&read_cfg_file($i)
 	}
 }
 
 # The main function to read the configuration files:
 
-sub ReadCfg {
+sub read_cfg {
 	for my $file (@configs) {
 		my $two = substr($file, 0, 2);
 		if($two eq '$/') {
-			ReadCfgFile($root . substr($file, 1))
+			&read_cfg_file($root . substr($file, 1))
 		} elsif ($two eq '~/') {
-			ReadCfgFile($home . substr($file, 1))
+			&read_cfg_file($home . substr($file, 1))
 		} elsif ($two eq '$$') {
-			ReadCfgDir($root . substr($file, 2))
+			&read_cfg_dir($root . substr($file, 2))
 		} elsif ($two eq '//') {
-			ReadCfgDir(substr($file, 2))
+			&read_cfg_dir(substr($file, 2))
 		}
 	}
 }
 
 # The main function to process the database tree:
 
-sub WantedSkip {
+sub wanted_skip {
 	return unless(/\/CONTENTS$/);
 	open(my $content, '<', $_) or return;
 	while(<$content>) {
@@ -639,6 +638,7 @@ sub WantedSkip {
 		} elsif($type ne 'dir') {
 			next
 		}
+		$path = &normalized($path);
 		$skip{$path} = undef;
 		for my $i (@symlinks) {
 			my $length = 0;
@@ -662,18 +662,18 @@ sub WantedSkip {
 
 # Recursively process the database tree
 
-sub FillSkip {
-	&Verbose('Determining files owned by portage');
+sub fill_skip {
+	&verbose('Determining files owned by portage');
 	find({
 		no_chdir => 1,
-		wanted => \&WantedSkip
+		wanted => \&wanted_skip
 		}, ($root . '/var/db/pkg'))
 }
 
 # Args: \$string, \@array_of_regexp
 # Returns whether $string matches a regexp
 
-sub MatchArray {
+sub match_array {
 	my ($string, $array) = @_;
 	for my $i (@$array) {
 		return 1 if($$string =~ $i);
@@ -683,11 +683,11 @@ sub MatchArray {
 
 # The main function to process the file tree:
 
-sub WantedFiles {
+sub wanted_files {
 	my $path = CFG::remove_root($_);
-	return if(($path eq '') or ($path eq '/'));
-	if(exists($cut{$path}) || &MatchArray(\$path, \@cutre)) {
-		unless(&MatchArray(\$path, \@cutexceptions)) {
+	return if(($path eq '') or ($path eq $rootdir));
+	if(exists($cut{$path}) || &match_array(\$path, \@cutre)) {
+		unless(&match_array(\$path, \@cutexceptions)) {
 			$File::Find::prune = 1;
 			return
 		}
@@ -706,14 +706,14 @@ sub WantedFiles {
 
 # Recursively process the file tree for all entries in passed array reference
 
-sub ProcessDirs {
+sub process_dirs {
 	my ($dirs) = @_;
-	&Verbose("Processing file tree\n");
+	&verbose("Processing file tree\n");
 	find({
 		no_chdir => 1,
 		follow_fast => 1,
 		follow_skip => 2,
 		dangling_symlinks => '',
-		wanted => \&WantedFiles
+		wanted => \&wanted_files
 		}, @$dirs)
 }
