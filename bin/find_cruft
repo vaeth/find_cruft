@@ -1,4 +1,4 @@
-#! /usr/bin/env perl
+#!/usr/bin/env perl
 use strict;
 use warnings;
 use integer;
@@ -9,7 +9,7 @@ use File::Spec;
 use Cwd 'abs_path';
 
 sub version {
-	print "find_cruft 2.1\n";
+	print("find_cruft 2.2\n");
 	exit(0)
 }
 
