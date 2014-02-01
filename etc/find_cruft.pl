@@ -26,13 +26,13 @@ $ENV{'PRINT_APPEND'} = '';
 our $portdir = remove_root(`eix --print PORTDIR 2>/dev/null`);
 if($portdir eq '') {
 	# If eix is not available, we try the slower portageq
-	# Note that this does not honour $root.
-	$portdir = `portageq portdir 2>/dev/null`;
+	# Note that the last fallback protageq portdir does not honour $root.
+	$portdir = `portageq get_repo_path '$root/' gentoo 2>/dev/null || portageq portdir 2>/dev/null`;
 	$portdir = '' unless(defined($portdir));
 	# portageq does append \n, so cut it:
 	chomp($portdir);
 	# If also portageq was not available, we fall back to the default:
-	$portdir = '/usr/portage' if($portdir eq '')
+	$portdir = ${root} . '/usr/portage' if($portdir eq '')
 }
 # The whole purpose of the business was to add $portdir to @cut:
 push(@cut, $portdir);

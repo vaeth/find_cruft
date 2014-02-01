@@ -9,7 +9,7 @@ use File::Spec;
 use Cwd 'abs_path';
 
 sub version {
-	print("find_cruft 2.3\n");
+	print("find_cruft 2.4\n");
 	exit(0)
 }
 
