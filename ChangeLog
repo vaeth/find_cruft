@@ -1,0 +1,38 @@
+# ChangeLog for find_cruft
+
+*find_cruft-3.0
+	Martin Väth <martin at mvath.de>:
+	- Provide etc/find_cruft.d/99-local.pl
+	- Provide fatal() for the configuration files
+	- Fix warnings with too long symlink paths
+	- Improve examples, document that files must end with true expression
+	- Do *not* document the namespace in which config files are parsed
+	- Fix name on several occassions
+	- internal: use Exporter
+	- internal: always use explicit package names, no imports
+
+*find_cruft-2.4
+	Martin Väth <martin at mvath.de>:
+	- Update default config to avoid portageq portdir
+
+*find_cruft-2.3
+*find_cruft-2.2
+	Martin Väth <martin at mvath.de>:
+	- Fix shebang
+	- Print updated version
+
+*find_cruft-2.1
+	Martin Väth <martin at mvath.de>:
+	- Use File::Spec instead of manually hacking
+	- Cosmetical changes
+
+*find_cruft-2.0
+	Martin Väth <martin at mvath.de>:
+	- Use /etc/find_cruft.pl
+	- support /etc/find_cruft.d
+	- Improve @symlinks
+
+*find_cruft-1.0
+	Martin Väth <martin at mvath.de>:
+	- Start from scratch
+

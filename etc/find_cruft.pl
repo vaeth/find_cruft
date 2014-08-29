@@ -1,13 +1,14 @@
 
 # The following directories should never be scanned for cruft-files:
-push(@cut,
-	'/home',
-	'/root',
-	'/srv',
-	'/boot',
-	'/var/tmp',
-	'/var/db',
-	'/var/cache/edb');
+push(@cut, qw(
+	/home
+	/root
+	/srv
+	/boot
+	/var/tmp
+	/var/db
+	/var/cache/edb
+));
 
 # If the following command is uncommented, it means that our subsequent changes
 # to the environment variables $ENV{...} are only valid for this file and
@@ -41,18 +42,18 @@ push(@cut, $portdir);
 # and - if it is a symlink - the directory where it points to to @cut.
 # Note that resolving the symlink might not honour $root correctly.
 
-# For resolving the symlink we use perl's Cwd:::abs_path:
-use Cwd 'abs_path';
+# For resolving the symlink we use perl's Cwd::abs_path:
+use Cwd ();
 
 my $kernel_dir = remove_root($ENV{'KERNEL_DIR'});
 $kernel_dir = '/usr/src/linux' if($kernel_dir eq '');
 push(@cut, $kernel_dir);
-push_without_root(@cut, abs_path($root . $kernel_dir));
+push_without_root(@cut, Cwd::abs_path($root . $kernel_dir));
 
 my $kbuild_output = remove_root($ENV{'KBUILD_OUTPUT'});
 if($kbuild_output ne '') {
 	push(@cut, $kbuild_output);
-	push_without_root(@cut, abs_path($root . $kbuild_output))
+	push_without_root(@cut, Cwd::abs_path($root . $kbuild_output))
 }
 
 # The following are standard symlinks on all gentoo systems.
@@ -61,27 +62,29 @@ if($kbuild_output ne '') {
 # To deal with the unusual setting /lib64->/lib (instead /lib->/lib64),
 # we also add the converse test (which only slows down a bit.
 push(@symlinks,
-	['/usr/doc', '/usr/share/doc'],
-	['/usr/man', '/usr/share/man'],
-	['/usr/info', '/usr/share/info'],
-	['/usr/tmp', '/usr/var/tmp'],
-	['/var/mail', '/var/spool/mail'],
-	['/lib', '/lib64'],
-	['/lib64', '/lib']
+	[qw(/usr/doc /usr/share/doc)],
+	[qw(/usr/man /usr/share/man)],
+	[qw(/usr/info /usr/share/info)],
+	[qw(/usr/tmp /usr/var/tmp)],
+	[qw(/var/mail /var/spool/mail)],
+	[qw(/lib /lib64)],
+	[qw(/lib64 /lib)]
 );
 
 # However, for /usr/lib64 we better make a separate test, since we also
 # decide whether /usr/lib/gcc-lib or /usr/lib64/gcc-lib is the plain directory:
 if(-d $root . '/usr/lib64') {
-	if(-l $root . '/usr/lib') { # the usual amd64 case
+	if(-l $root . '/usr/lib') {  # the usual amd64 case
 		push(@symlinks,
-			['/usr/lib', '/usr/lib64'],
-			['/usr/lib/gcc', '/usr/lib64/gcc', '/usr/lib64/gcc-lib'])
-	} elsif(-l $root . '/usr/lib64') { # the unusual amd64 case
+			[qw(/usr/lib /usr/lib64)],
+			[qw(/usr/lib/gcc /usr/lib64/gcc /usr/lib64/gcc-lib)])
+	} elsif(-l $root . '/usr/lib64') {  # the unusual amd64 case
 		push(@symlinks,
-			['/usr/lib64', '/usr/lib'],
-			['/usr/lib/gcc', '/usr/lib64/gcc', '/usr/lib/gcc-lib'])
+			[qw(/usr/lib64 /usr/lib)],
+			[qw(/usr/lib/gcc /usr/lib64/gcc /usr/lib/gcc-lib)])
 	}
-} else { # The x86 systems case
-	push(@symlinks, ['/usr/lib/gcc', '/usr/lib/gcc-lib'])
+} else {  # The x86 systems case
+	push(@symlinks, [qw(/usr/lib/gcc /usr/lib/gcc-lib)])
 }
+
+'EOF';  # The last executed command in this file should be a true expression

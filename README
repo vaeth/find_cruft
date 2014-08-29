@@ -14,7 +14,7 @@ to e.g. check only certain subtrees for cruft.
 It can also emulate a chroot to some extent if you have a gentoo installation
 in a chroot partition.
 
-For detailed usage instructions, type B<plrep --man> after installing.
+For detailed usage instructions, type B<find_cruft --man> after installing.
 
 For installation just put the content of bin somewhere into your $PATH
 and the content of etc into /etc (or use later a corresponding -c option).

@@ -2,16 +2,14 @@
 use strict;
 use warnings;
 use integer;
-use Pod::Usage;
-use Getopt::Long;
-use File::Find;
-use File::Spec;
-use Cwd 'abs_path';
+use Cwd ();
+use Exporter qw(import);
+use File::Find ();
+use File::Spec ();
+use Getopt::Long ();
+use Pod::Usage ();
 
-sub version {
-	print("find_cruft 2.4\n");
-	exit(0)
-}
+our $VERSION = '3.0';
 
 =head1 NAME
 
@@ -21,13 +19,13 @@ find_cruft - find cruft files on Gentoo and similar distributions
 
 =over 8
 
-=item B<plrep> [options] I<directory1> I<directory2> ...
+=item B<find_cruft> [options] I<directory1> I<directory2> ...
 
 Scan for cruft files in I<directory1>, I<directory2>, ...
 
 =back
 
-To get an extended help, type B<plrep --man> or B<plrep -?>
+To get an extended help, type B<find_cruft --man> or B<find_cruft -?>
 
 =head1 DESCRIPTION
 
@@ -105,24 +103,24 @@ However, this will not always give the desired results (since e.g. absolute
 symlinks are not always be treated correctly), so you should be sceptical
 whether the cruft list is correct: There may be false positives and negatives.
 
-=item B<--cfg>[B<=>I<config-file>] or B<-c> I<config-file>
+=item B<--cfg>[B<=>I<file>] or B<-c> I<file>
 
-Use I<config-file> as an additional configuration file.
-This can be used repeatedly.
+Use I<file> as an additional configuration file.
+This can be used accumulatively.
 
 =item B<--nocfg> or B<-C>
 
 Clear previous (and default) list of configuration files.
 
-=item B<--output>[B<=>I<output-file>] or B<-o> I<output-file>
+=item B<--output>[B<=>I<file>] or B<-o> I<file>
 
-Append to I<output-file> instead of writing to stdout.
-If I<output-file> does not exist, it is created.
-If I<output-file> is empty, stdout is used anyway.
+Append to I<file> instead of writing to stdout.
+If I<file> does not exist, it is created.
+If I<file> is empty, stdout is used anyway.
 
-=item B<--Output>[B<=>I<output-file>] or B<-O> I<output-file>
+=item B<--Output>[B<=>I<file>] or B<-O> I<file>
 
-As B<--output> but truncate (clobber) I<output-file> if it exists.
+As B<--output> but truncate (clobber) I<file> if it exists.
 
 =item B<-->
 
@@ -138,7 +136,7 @@ The default config-files are (read in this order):
 
 =item F<$/etc/find_cruft.pl>
 
-=item F<$$/etc/find_cruft.d/*.pl>
+=item F<$$/etc/find_cruft.d>
 
 =item F<~/.find_cruft.pl>
 
@@ -152,16 +150,17 @@ ignoring B<--root>.
 Further files can be added with the B<--cfg> option.
 The list can be cleaned up with the B<--nocfg> option.
 
-The config-files can be any valid perl code.
-They are run in the B<CFG::> namespace.
-They get passed the following arrays with some default values,
-and their purpose is to enlarge these arrays to match the local system.
+The config-files can be any valid perl code. The last executed command
+in these files should be a true perl expression (e.g. 'EOF').
+The config-files get passed the following arrays with some default values,
+and their task is to enlarge these arrays to match the local system.
 (They can also shrink these arrays, of course, if the user wants to
 get reported files in certain directories as cruft.)
 
 =over 8
 
 =item B<@cut>
+
 Contains files/directories which should be cut recursively.
 The entries must be the full paths (without reflecting B<--root>);
 no wildcards are allowed.
@@ -170,6 +169,7 @@ entries are automatically removed.
 Increasing this list (even dramatically) has almost no influence on the speed.
 
 =item B<@cutre>
+
 This is similar as B<@cut> with the difference that the entries of this
 list are considered as (perl) regular expressions.
 The entries can be strings or compiled regular expressions.
@@ -178,11 +178,13 @@ Increase this list sparingly since every file in your tree is matched against
 every entry in this list!
 
 =item B<@cutexceptions>
+
 This is in a sense the opposite to B<@cutre>, i.e. files matching B<@cut>
 or B<@cutre> must B<not> match against the regular expressions of this list,
 or otherwise the effect of B<@cut>/B<@cutre> is ignored.
 
 =item B<@symlinks>
+
 This array consists of entries of the form
 ['I<link1>', 'I<link2>', ..., 'I<directory>']
 It means that in the database the path beginnings I<link1> of I<link2>
@@ -202,6 +204,7 @@ directory will be reported as cruft, so you just see your mistake from
 the output list and can fix it (or live with the false positives).
 
 =item B<@follow>
+
 Contains symlinks which should be followed when getting the file tree.
 This should be used if certain parts of your tree lie e.g. on another file
 system to which you refer by symbolic links.
@@ -211,9 +214,9 @@ Increasing this list even dramatically has almost no influence on the speed
 
 =back
 
-The B<--root> path is accessible as B<$root> (i.e. B<$CFG::root>).
+The B<--root> path is accessible as B<$root> (but changing it has no effect).
 Note that you can use perl's B<push()> to append to an existing array.
-Two further helper functions are defined:
+Some further helper functions are defined:
 
 =over 8
 
@@ -229,32 +232,35 @@ know whether the result points to a subdirectory of B<$root>
 This function is like B<push()> except that B<remove_root> is applied to all
 pushed arguments and except that undefined or empty strings are not pushed.
 
+=item B<fatal>(I<line1>, I<line2>, ...)
+
+Output a fatal error and die.
+
 =back
 
 For examples, we mainly refer to the default F</etc/find_cruft.pl>.
-Anyway, here are some typical examples:
+Anyway, here are some hypothetical examples:
 
 =over 8
 
-=item B<push(@cut, '/dev', '/proc', '/sys', '/run', '/media', '/mnt', '/tmp');>
+=item push(@cut, qw(/dev /proc /sys /run /media /mnt /tmp));
 
-The above directories are the default in B<@cut>: You need not add them.
+This is actually redundant:
+The above directories are the default in B<@cut>.
 The reason for this default is that it usually never makes sense
 (and can even cause problems) trying to scan these directories.
 Remove them from B<@cut> only if you know what you are doing!
 
-=item B<push(@cut, '/home', '/root', '/srv', '/boot', '/var/tmp',>
-
-=item B<  '/var/db', '/var/cache/edb');>
+=item push(@cut, qw(/home /root /srv /boot /var/tmp /var/db /var/cache/edb));
 
 On most gentoo systems you will never want to consider stuff in these
 directories never as cruft.
 Therefore, these directories (and some more) are added to B<@cut> by
 the default F</etc/find_cruft.pl>.
 
-=item B<push(@cut, '/var/cache/fontconfig', '/usr/share/mime',>
+=item push(@cut, qw(/var/cache/fontconfig /usr/share/mime
 
-=item B<  '/lib/modules', '/lib64/modules', '/var/log/portage', '/usr/local');>
+=item /lib/modules /lib64/modules /var/log/portage /usr/local));
 
 The above directories usually contain a lot of false positives which you might
 want to suppress in the output unless you do a very rigorous cleanup.
@@ -262,20 +268,20 @@ However, since in a sense all these directories are cruft, they are not
 contained in the default setting (also not in F</etc/find_cruft.pl>).
 Therefore you might want to put this into F</etc/find_cruft.d/99-local.pl>).
 
-=item B<push(@cut, '/etc/find_cruft.d/99-local.pl');>
+=item push(@cut, '/etc/find_cruft.d/99-local.pl');
 
 If you always want to suppress the output of that file.
 
-=item B<push(@cutre, '/\.keep[^/]*$', qr!/joe[^/]*$!i);>
+=item push(@cutre, '/\.keep[^/]*$', qr{/joe[^/]*$}i);
 
 Files/dirs with names F<.keep*>, F<joe*>, F<Joe*>, F<JOE*>, ... are ignored.
 
-=item B<push(@cutexceptions, '^/\.keep$', qr!/jOe[^/]*$!);>
+=item push(@cutexceptions, '^/\.keep$', qr{/jOe[^/]*$});
 
 The path B</.keep> (in the B<--root> directory) and the filenames B<jOe*>
 are exceptions from the above general rules in B<@cutre>.
 
-=item B<push(@symlinks, ['/usr/X11', '/usr/X11/X11', '/usr']);>
+=item push(@symlinks, [qw(/usr/X11 /usr/X11/X11 /usr)]);
 
 Use this if you have a very old Gentoo installations with a symlink from
 B</usr/X11> to B</usr>.
@@ -288,26 +294,37 @@ into B</usr/X11/X11/X11> so that it is reasonable to consider only the
 first two cases as symlinks.
 Probably even the second entry B</usr/X11/X11> is not necessary in practice
 (unless you have strange ebuilds from some overlays).
-However, recently new ebuilds will never install into B</usr/X11> so that
+However, current ebuilds will never install into B</usr/X11> so that
 usually the above customization is not necessary.
 
-=item B<push(@follow, '/etc', '/usr/share/texmf-dist');>
+=item push(@follow, qw(/etc /usr/share/texmf-dist));
 
-Put such things into B</etc/find_cruft.local.pl> if on you machine
+Put such things into B</etc/find_cruft.d/99-local.pl> if on your machine
 F</etc> and F</usr/share/texmf-dist> are symlinks to e.g. separate partitions.
 
 =back
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright Martin VE<auml>th.
-This program is under the BSD License.
+Copyright Martin VE<auml>th. This program is under the BSD License.
 
 =head1 AUTHOR
 
 Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 =cut
+
+# Static variables:
+
+my $name = 'find_cruft';
+my $rootdir = File::Spec->rootdir();
+
+# Global variables;
+
+my $fh = undef;
+my $home = undef;
+my %skip = ();
+my %valid_types = ();
 
 # Default for the Options:
 
@@ -323,10 +340,10 @@ our $root = '';
 
 # Parse Options:
 
-$Getopt::Long::bundling = 1;
-GetOptions(
-	'help|h', sub { pod2usage(1) },
-	'man|?', sub { pod2usage(-verbose => 2) },
+Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::GetOptions(
+	'help|h', sub { Pod::Usage::pod2usage(1) },
+	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
 	'version|V', \&version,
 	'outputfile|o', sub { $outputfile = $_[1]; $openmode = '>>' },
 	'Outputfile|O', sub { $outputfile = $_[1]; $openmode = '>' },
@@ -334,73 +351,75 @@ GetOptions(
 	'cfg|c=s', \@configs,
 	'nocfg|C', sub { @configs = () },
 	'verbose|v+', \$verbose,
-) or pod2usage(2);
+) or Pod::Usage::pod2usage(2);
 
-pod2usage(2) unless(scalar(@ARGV));
+Pod::Usage::pod2usage(2) unless(scalar(@ARGV));
 
 # Sanitize parsed variables:
 
-$root = abs_path($root) unless($root eq '');
-$root =~ s/\/$//;
+$root = Cwd::abs_path($root) unless($root eq '');
+$root =~ s{\/$}{};
 
 # Append $root to parsed arguments:
 
 for my $dir (@ARGV) {
-	if($dir =~ /^\//) {
+	if($dir =~ m{^\/}) {
 		$dir = $root . $dir unless($root eq '')
 	}
-	$dir = abs_path($dir);
+	$dir = Cwd::abs_path($dir);
 	&fatal("$dir is not a directory") unless(-d $dir)
 }
 
 # Output results of parsing arguments and configs:
 
 &verbose('', 1);
-&verbose('$root: ' . $root . "\n", 1) unless($root eq '');
+&verbose('$root: ' . $root, 1);
 &verbose(['ARGV', \@ARGV], 1);
 
-# Global variables;
-
-my $fh = undef;
-my $home = $ENV{'HOME'};
-my %skip = ();
-my %valid_types = ();
-my $rootdir = File::Spec->rootdir();
-
-# The default Config:
+# The default config must be parsed before the function
 {
 	package CFG;
-	our $root = $::root;
-	our @cut = (
-		'/dev',
-		'/proc',
-		'/sys',
-		'/run',
-		'/media',
-		'/mnt',
-		'/tmp');
+	our $root = $main::root;
+	our @cut = qw(
+		/dev
+		/proc
+		/sys
+		/run
+		/media
+		/mnt
+		/tmp
+	);
 	our @cutre = ();
 	our @cutexceptions = ();
 	our @follow = ();
 	our @symlinks = ();
-	sub remove_root($) {
-		my ($string) = @_;
-		return '' unless(defined($string));
-		return (($root ne substr($string, 0, length($root))) ?
-			$string : substr($string, length($root)))
-	}
-	sub push_without_root(\@@) {
-		my ($array, @rest) = @_;
-		for my $i (@rest) {
-			my $j = remove_root($i);
-			push(@$array, $j) unless($j eq '')
-		}
+}
+
+# Functions used in the configuration file:
+
+sub remove_root($) {
+	my $string = (shift() // '');
+	$string =~ s{^\Q$root\E}{};
+	$string
+}
+
+sub push_without_root(\@@) {
+	my ($array, @rest) = @_;
+	for my $i (@rest) {
+		my $j = &remove_root($i);
+		push(@$array, $j) unless($j eq '')
 	}
 }
 
+our @EXPORT = qw(
+	remove_root
+	push_without_root
+	fatal
+);
+
 # Read config files:
 
-&read_cfg;
+&read_cfg();
 
 # transform configuration data:
 
@@ -426,13 +445,13 @@ my @cutexceptions = ();
 
 # Files owned by portage are no cruft:
 
-&fill_skip;
+&fill_skip();
 
 # Process filesystem:
 
 if($outputfile ne '') {
 	open($fh, $openmode, $outputfile) or
-		&fatal("cannot open $openmode$outputfile: $!");
+		&fatal("cannot open $openmode$outputfile:", $!);
 	&process_dirs(\@ARGV);
 	close($fh)
 } else {
@@ -443,10 +462,16 @@ if($outputfile ne '') {
 # Functions
 #
 
+sub version {
+	print("$name $VERSION\n");
+	exit(0)
+}
+
 # Output fatal error and die:
 
-sub fatal {
-	print(STDERR 'fatal: ', $_[0], "\n");
+sub fatal(@) {
+	print(STDERR "$name: fatal: ",
+		join("\n" . (' ' x (length($name) + 9)), @_), "\n");
 	exit(1)
 }
 
@@ -500,7 +525,7 @@ sub verbose {
 
 sub normalized {
 	my $res = File::Spec->canonpath($_[0]);
-	return (($res eq '') ? $rootdir : $res)
+	(($res eq '') ? $rootdir : $res)
 }
 
 # Transform \@array into \%hash of undef values; normalized entries:
@@ -508,11 +533,11 @@ sub normalized {
 sub transform {
 	my ($array, $hash) = @_;
 	for my $i (@$array) {
-		next unless(defined($i) && ($i ne ''));
+		next unless(($i // '') ne '');
 		$i = &normalized($i);
 		${$hash}{$i} = undef;
 	}
-	@$array = ();
+	@$array = ()
 }
 
 # Compile all regular expresssions from \@array into \@output if not compiled:
@@ -524,10 +549,10 @@ sub compile_re {
 		if(ref($i) eq 'Regexp') {
 			push(@$output, $i)
 		} elsif($i ne '') {
-			push(@$output, qr/$i/)
+			push(@$output, qr{$i})
 		}
 	}
-	@$array = ();
+	@$array = ()
 }
 
 # Transform \@symlinks into \@output; normalized entries:
@@ -546,7 +571,7 @@ sub prepare_symlinks {
 				push(@$r, $s)
 			} elsif(scalar($r)) {
 				my $dest = $root . $s;
-				if((-d $dest) && (abs_path($dest) eq $dest)) {
+				if((-d $dest) && (Cwd::abs_path($dest) eq $dest)) {
 					# destination is dir without symlinks
 					push(@$r, $s);
 					push(@$output, $r)
@@ -554,52 +579,55 @@ sub prepare_symlinks {
 			}
 		}
 	}
-	@$array = ();
+	@$array = ()
 }
 
 # The main function to read a configuration file:
 
 sub read_cfg_file {
 	my ($file) = @_;
-	$file = abs_path($file);
+	$file = Cwd::abs_path($file);
 	unless(-f $file) {
 		&verbose("skipping config file $file (not a file)");
 		return
 	}
 	&verbose("reading config file $file");
 	package CFG;
-	our $root = $::root;
+	our $root = $main::root;
 	our @cut;
 	our @cutre;
 	our @cutexceptions;
 	our @follow;
 	our @symlinks;
-	unless(my $return = do($file)) {
-		die "error parsing $file: $@\nstopped" if($@);
-		die "error running $file\nstopped"
-			if(defined($return) && !$return)
-	}
+	main->import();
+	my $ret = do($file);
+	&fatal("error parsing $file:", $@) if($@);
+	&fatal("failed to read $file:", $!) unless(defined($ret));
+	&fatal("failed to run $file",
+		'perhaps the last executed command was not a true expression')
+		unless($ret)
 }
 
 # The main function to read a configuration directory:
 
 sub read_cfg_dir {
 	my ($dir) = @_;
-	$dir = abs_path($dir);
+	$dir = Cwd::abs_path($dir);
 	unless(-d $dir) {
 		&verbose("skipping config dir: $dir (not a directory)");
 		return
 	}
 	&verbose("reading config dir: $dir");
 	my @cfgs;
-	find({
+	File::Find::find({
 		no_chdir => 1,
 		follow => 1,
 		follow_skip => 2,
 		dangling_symlinks => '',
 		wanted => sub {
-			push(@cfgs, $_) if(/\.pl$/ && (-f $_))
-		}}, ($dir));
+			push(@cfgs, $_) if(m{\.pl$} && (-f $_))
+		}
+	}, ($dir));
 	for my $i (sort(@cfgs)) {
 		&read_cfg_file($i)
 	}
@@ -609,15 +637,19 @@ sub read_cfg_dir {
 
 sub read_cfg {
 	for my $file (@configs) {
-		my $two = substr($file, 0, 2);
+		my $two = substr($file . 'xx', 0, 2);
 		if($two eq '$/') {
 			&read_cfg_file($root . substr($file, 1))
 		} elsif ($two eq '~/') {
-			&read_cfg_file($home . substr($file, 1))
+			if(($home //= ($ENV{'HOME'} // '')) ne '') {
+				&read_cfg_file($home . substr($file, 1))
+			}
 		} elsif ($two eq '$$') {
 			&read_cfg_dir($root . substr($file, 2))
 		} elsif ($two eq '//') {
-			&read_cfg_dir(substr($file, 2))
+			&read_cfg_dir(substr($file, 1))
+		} else {
+			&read_cfg_file($file)
 		}
 	}
 }
@@ -625,20 +657,22 @@ sub read_cfg {
 # The main function to process the database tree:
 
 sub wanted_skip {
-	return unless(/\/CONTENTS$/);
+	return unless(m{\/CONTENTS$});
 	open(my $content, '<', $_) or return;
 	while(<$content>) {
-		chomp;
+		chomp();
+		next if(length($_) < 4);
 		my $type = substr($_, 0, 3);
 		my $path = substr($_, 4);
 		if($type eq 'obj') {
-			$path =~ s/\s+\S+\s+\S+$//
+			$path =~ s{\s+\S+\s+\S+$}{}
 		} elsif($type eq 'sym') {
-			$path =~ s/\s+\-\>\s+.*$//
+			$path =~ s{\s+\-\>\s+.*$}{}
 		} elsif($type ne 'dir') {
 			next
 		}
 		$path = &normalized($path);
+		my $pathlen = length($path);
 		$skip{$path} = undef;
 		for my $i (@symlinks) {
 			my $length = 0;
@@ -646,9 +680,11 @@ sub wanted_skip {
 			for(my $j = 0; $j < $last; ++$j) {
 				my $s = $i->[$j];
 				my $l = length($s);
-				$length = $l if(($length <= $l) &&
-					((($s . '/') eq substr($path, 0, $l + 1))
-					|| ($s eq $path)))
+				next if($l > $pathlen);
+				$length = $l if(($length <= $l) && (
+					(($l == $pathlen) && ($s eq $path)) ||
+					((($s . '/') eq
+						substr($path, 0, $l + 1)))))
 			}
 			next if($length == 0);
 			my $rest = substr($path, $length);
@@ -664,10 +700,10 @@ sub wanted_skip {
 
 sub fill_skip {
 	&verbose('Determining files owned by portage');
-	find({
+	File::Find::find({
 		no_chdir => 1,
 		wanted => \&wanted_skip
-		}, ($root . '/var/db/pkg'))
+	}, ($root . '/var/db/pkg'))
 }
 
 # Args: \$string, \@array_of_regexp
@@ -708,12 +744,13 @@ sub wanted_files {
 
 sub process_dirs {
 	my ($dirs) = @_;
-	&verbose("Processing file tree\n");
-	find({
+	&verbose('Processing file tree');
+	&verbose('');
+	File::Find::find({
 		no_chdir => 1,
 		follow_fast => 1,
 		follow_skip => 2,
 		dangling_symlinks => '',
 		wanted => \&wanted_files
-		}, @$dirs)
+	}, @$dirs)
 }
