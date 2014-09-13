@@ -1,5 +1,10 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.1
+	Martin Väth <martin at mvath.de>:
+	- Use perl-5.12 package versioning, dotted-decimal version
+	- Require correct perl/module versions
+
 *find_cruft-3.0
 	Martin Väth <martin at mvath.de>:
 	- Provide etc/find_cruft.d/99-local.pl

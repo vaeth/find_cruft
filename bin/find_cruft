@@ -1,15 +1,17 @@
 #!/usr/bin/env perl
+require 5.012;
+package FindCruft v3.0.1;
+
 use strict;
 use warnings;
 use integer;
+use version 0.77 ();
 use Cwd ();
 use Exporter qw(import);
 use File::Find ();
 use File::Spec ();
-use Getopt::Long ();
+use Getopt::Long 2.24 ();
 use Pod::Usage ();
-
-our $VERSION = '3.0';
 
 =head1 NAME
 
@@ -316,6 +318,7 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Static variables:
 
+our $VERSION;
 my $name = 'find_cruft';
 my $rootdir = File::Spec->rootdir();
 
@@ -463,7 +466,7 @@ if($outputfile ne '') {
 #
 
 sub version {
-	print("$name $VERSION\n");
+	print($name . ' ' . $VERSION->stringify() . "\n");
 	exit(0)
 }
 
