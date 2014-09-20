@@ -1,5 +1,9 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.2
+	Martin Väth <martin at mvath.de>:
+	- require pod2usage only if necessary; don't use version
+
 *find_cruft-v3.0.1
 	Martin Väth <martin at mvath.de>:
 	- Use perl-5.12 package versioning, dotted-decimal version

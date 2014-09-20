@@ -1,17 +1,16 @@
 #!/usr/bin/env perl
 require 5.012;
-package FindCruft v3.0.1;
+package FindCruft v3.0.2;
 
 use strict;
 use warnings;
 use integer;
-use version 0.77 ();
 use Cwd ();
 use Exporter qw(import);
 use File::Find ();
 use File::Spec ();
 use Getopt::Long 2.24 ();
-use Pod::Usage ();
+#use Pod::Usage ();
 
 =head1 NAME
 
@@ -345,8 +344,8 @@ our $root = '';
 
 Getopt::Long::Configure(qw(bundling gnu_compat));
 Getopt::Long::GetOptions(
-	'help|h', sub { Pod::Usage::pod2usage(1) },
-	'man|?', sub { Pod::Usage::pod2usage(-verbose => 2) },
+	'help|h', sub { &pod2usage(0) },
+	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
 	'outputfile|o', sub { $outputfile = $_[1]; $openmode = '>>' },
 	'Outputfile|O', sub { $outputfile = $_[1]; $openmode = '>' },
@@ -354,9 +353,9 @@ Getopt::Long::GetOptions(
 	'cfg|c=s', \@configs,
 	'nocfg|C', sub { @configs = () },
 	'verbose|v+', \$verbose,
-) or Pod::Usage::pod2usage(2);
+) or &pod2usage(2);
 
-Pod::Usage::pod2usage(2) unless(scalar(@ARGV));
+&pod2usage(2) unless(scalar(@ARGV));
 
 # Sanitize parsed variables:
 
@@ -466,8 +465,13 @@ if($outputfile ne '') {
 #
 
 sub version {
-	print($name . ' ' . $VERSION->stringify() . "\n");
+	print($name, ' ', $VERSION, "\n");
 	exit(0)
+}
+
+sub pod2usage {
+	require Pod::Usage;;
+	Pod::Usage::pod2usage(@_)
 }
 
 # Output fatal error and die:
@@ -660,8 +664,7 @@ sub read_cfg {
 # The main function to process the database tree:
 
 sub wanted_skip {
-	return unless(m{\/CONTENTS$});
-	open(my $content, '<', $_) or return;
+	return unless(m{\/CONTENTS$} && open(my $content, '<', $_));
 	while(<$content>) {
 		chomp();
 		next if(length($_) < 4);
