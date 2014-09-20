@@ -87,4 +87,4 @@ if(-d $root . '/usr/lib64') {
 	push(@symlinks, [qw(/usr/lib/gcc /usr/lib/gcc-lib)])
 }
 
-'EOF';  # The last executed command in this file should be a true expression
+1;  # The last executed command in this file should be a true expression

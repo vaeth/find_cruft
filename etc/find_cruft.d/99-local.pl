@@ -15,4 +15,4 @@ push(@cut, qw(
 	/var/log/portage
 ));
 
-'EOF';  # The last executed command in this file should be a true expression
+1;  # The last executed command in this file should be a true expression

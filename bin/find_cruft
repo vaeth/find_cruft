@@ -152,7 +152,7 @@ Further files can be added with the B<--cfg> option.
 The list can be cleaned up with the B<--nocfg> option.
 
 The config-files can be any valid perl code. The last executed command
-in these files should be a true perl expression (e.g. 'EOF').
+in these files should be a true perl expression (e.g. 1).
 The config-files get passed the following arrays with some default values,
 and their task is to enlarge these arrays to match the local system.
 (They can also shrink these arrays, of course, if the user wants to
