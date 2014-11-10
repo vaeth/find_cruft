@@ -1,5 +1,9 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.4
+	Martin Väth <martin at mvath.de>:
+	- Fix wrong usage of "main". Regression since v3.0.1
+
 *find_cruft-v3.0.3
 	Martin Väth <martin at mvath.de>:
 	- require pod2usage only if necessary; don't use version
