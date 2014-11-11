@@ -1,5 +1,10 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.5
+	Martin Väth <martin at mvath.de>:
+	- Fix --output --Output -o -O
+	- use gnu_getopt
+
 *find_cruft-v3.0.4
 	Martin Väth <martin at mvath.de>:
 	- Fix wrong usage of "main". Regression since v3.0.1

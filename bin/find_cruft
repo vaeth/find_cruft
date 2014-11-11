@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package FindCruft v3.0.4;
+package FindCruft v3.0.5;
 
 use strict;
 use warnings;
@@ -342,13 +342,13 @@ our $root = '';
 
 # Parse Options:
 
-Getopt::Long::Configure(qw(bundling gnu_compat));
+Getopt::Long::Configure(qw(gnu_getopt));
 Getopt::Long::GetOptions(
 	'help|h', sub { &pod2usage(0) },
 	'man|?', sub { &pod2usage(-verbose => 2, -exit => 0) },
 	'version|V', \&version,
-	'outputfile|o', sub { $outputfile = $_[1]; $openmode = '>>' },
-	'Outputfile|O', sub { $outputfile = $_[1]; $openmode = '>' },
+	'output|o=s', sub { $outputfile = $_[1]; $openmode = '>>' },
+	'Output|O=s', sub { $outputfile = $_[1]; $openmode = '>' },
 	'root|r=s', \$root,
 	'cfg|c=s', \@configs,
 	'nocfg|C', sub { @configs = () },
