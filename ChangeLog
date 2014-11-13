@@ -1,5 +1,9 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.6
+	Martin Väth <martin at mvath.de>:
+	- Fix --Output (no_case_ignore)
+
 *find_cruft-v3.0.5
 	Martin Väth <martin at mvath.de>:
 	- Fix --output --Output -o -O
