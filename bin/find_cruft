@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package FindCruft v3.0.6;
+package FindCruft v3.0.7;
 
 use strict;
 use warnings;
@@ -505,13 +505,7 @@ sub verbose {
 			if(ref($i) ne 'ARRAY') {
 				&verbose($i)
 			} else {
-				my $s = '[';
-				my $last = scalar(@$i) - 1;
-				for(my $j = 0; $j < $last; ++$j) {
-					$s .= $i->[$j];
-					$s .= ', '
-				}
-				&verbose($s . $i->[$last] . ']')
+				&verbose('[' . join(', ', @$i) . ']')
 			}
 		}
 		&verbose();
@@ -570,8 +564,7 @@ sub prepare_symlinks {
 		next unless(defined($i) && (ref($i) eq 'ARRAY'));
 		my $r = [];
 		my $last = scalar(@$i) - 1;
-		for(my $j = 0; $j <= $last; ++$j) {
-			my $s = $i->[$j];
+		while(my ($j, $s) = each(@$i)) {
 			next unless(defined($s) && File::Spec->file_name_is_absolute($s));
 			$s = &normalized($s);
 			if($j < $last) {
@@ -683,8 +676,9 @@ sub wanted_skip {
 		for my $i (@symlinks) {
 			my $length = 0;
 			my $last = scalar(@$i) - 1;
-			for(my $j = 0; $j < $last; ++$j) {
-				my $s = $i->[$j];
+			my $s;
+			while((my $j, $s) = each(@$i)) {
+				last if($j >= $last);
 				my $l = length($s);
 				next if($l > $pathlen);
 				$length = $l if(($length <= $l) && (
@@ -695,7 +689,7 @@ sub wanted_skip {
 			next if($length == 0);
 			my $rest = substr($path, $length);
 			if((substr($rest, 0, 1) eq '/') || ($rest eq '')) {
-				$skip{$i->[$last] . $rest} = undef
+				$skip{$s . $rest} = undef
 			}
 		}
 	}
