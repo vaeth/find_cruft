@@ -1,6 +1,6 @@
 #!/usr/bin/env perl
 require 5.012;
-package FindCruft v3.0.8;
+package FindCruft v3.0.9;
 
 use strict;
 use warnings;
@@ -586,10 +586,14 @@ sub prepare_symlinks {
 
 sub read_cfg_file {
 	my ($file) = @_;
-	$file = Cwd::abs_path($file);
-	unless(-f $file) {
-		&verbose("skipping config file $file (not a file)");
-		return
+	{
+		my $newfile = Cwd::abs_path($file) // '';
+		unless(-f $newfile) {
+			$file = '""' if($file eq '');
+			&verbose("skipping config file $file (not a file)");
+			return
+		}
+		$file = $newfile
 	}
 	&verbose("reading config file $file");
 	package CFG;
@@ -720,7 +724,7 @@ sub match_array {
 # The main function to process the file tree:
 
 sub wanted_files {
-	my $path = CFG::remove_root($_);
+	my $path = &remove_root($_);
 	return if(($path eq '') or ($path eq $rootdir));
 	if(exists($cut{$path}) || &match_array(\$path, \@cutre)) {
 		unless(&match_array(\$path, \@cutexceptions)) {

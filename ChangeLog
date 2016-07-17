@@ -1,5 +1,9 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.9
+	Martin Väth <martin at mvath.de>:
+	- Work (rudimentary) if no config file is read
+
 *find_cruft-v3.0.8
 	Martin Väth <martin at mvath.de>:
 	- Syntactic micro-optimization
