@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
-require 5.012;
-package FindCruft v3.0.9;
+BEGIN { require 5.008 }
+our $VERSION = 'v3.0.10';
+eval "package FindCruft $VERSION" if($] ge '5.012');
 
 use strict;
 use warnings;
@@ -11,6 +12,8 @@ use File::Find ();
 use File::Spec ();
 use Getopt::Long 2.24 ();
 #use Pod::Usage ();
+
+=encoding UTF-8
 
 =head1 NAME
 
@@ -317,7 +320,6 @@ Martin VE<auml>th E<lt>martin@mvath.deE<gt>
 
 # Static variables:
 
-our $VERSION;
 my $name = 'find_cruft';
 my $rootdir = File::Spec->rootdir();
 

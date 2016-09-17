@@ -1,5 +1,11 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.0.10
+	Martin Väth <martin at mvath.de>:
+	- Force utf8 in manpage
+	- Lower required perl version
+	- Check perl version at compile time
+
 *find_cruft-v3.0.9
 	Martin Väth <martin at mvath.de>:
 	- Work (rudimentary) if no config file is read
