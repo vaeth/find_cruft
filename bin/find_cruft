@@ -1,7 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
-our $VERSION = 'v3.0.10';
-eval "package FindCruft $VERSION" if($] ge '5.012');
+package FindCruft;
+our $VERSION = 'v3.1.0';
+eval { $VERSION = version->declare($VERSION) };
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
 use strict;
 use warnings;

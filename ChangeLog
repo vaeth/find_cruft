@@ -1,5 +1,10 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v3.1.0
+	Martin Väth <martin at mvath.de>:
+	- Fix regression of v3.0.10 which completely broke the package:
+	- Handle $VERSION workaround correctly
+
 *find_cruft-v3.0.10
 	Martin Väth <martin at mvath.de>:
 	- Force utf8 in manpage
