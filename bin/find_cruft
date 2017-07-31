@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package FindCruft;
-our $VERSION = 'v3.1.0';
+our $VERSION = 'v4.0.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
 
@@ -140,19 +140,23 @@ The default config-files are (read in this order):
 
 =over 8
 
-=item F<$/etc/find_cruft.pl>
+=item F<$/etc/find_cruft.pl|$/usr/lib/find_cruft/find_cruft.pl>
 
-=item F<$$/etc/find_cruft.d>
-
-=item F<~/.find_cruft.pl>
+=item F<$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d>
 
 =back
 
 The magic beginning B<$> means the value specified in B<--root>,
-and the magic beginning B<$$> means in addition that all *.pl files in this
-directory are read recursively in alphabetical order.
-The magic beginning B<//> (not used in the defaults) is as B<$$> but
-ignoring B<--root>.
+and the magic beginning $B<~> (not used in the defaults) means the user's
+home directory.
+If the path is a directory, all files in this directory of the form B<*.pl>
+and not starting with a dot are read.
+If there are several paths separated by B<|> the later paths are only fallbacks
+in the following sense: If a path is a readable non-directory, then all
+fallback paths ignored. If a path is a readable directory, then in the
+later directories only those filenames are read which are not readable in
+former directories.
+
 Further files can be added with the B<--cfg> option.
 The list can be cleaned up with the B<--nocfg> option.
 
@@ -244,8 +248,9 @@ Output a fatal error and die.
 
 =back
 
-For examples, we mainly refer to the default F</etc/find_cruft.pl>.
-Anyway, here are some hypothetical examples:
+To see an example configuration, it is recommended to look at the
+system default F</usr/lib/find_cruft/find_cruft.pl> or F</etc/find_cruft.pl>.
+Here are some more hypothetical examples:
 
 =over 8
 
@@ -262,7 +267,7 @@ Remove them from B<@cut> only if you know what you are doing!
 On most gentoo systems you will never want to consider stuff in these
 directories never as cruft.
 Therefore, these directories (and some more) are added to B<@cut> by
-the default F</etc/find_cruft.pl>.
+the default F</usr/lib/find_cruft/find_cruft.pl>.
 
 =item push(@cut, qw(/var/cache/fontconfig /usr/share/mime
 
@@ -271,7 +276,7 @@ the default F</etc/find_cruft.pl>.
 The above directories usually contain a lot of false positives which you might
 want to suppress in the output unless you do a very rigorous cleanup.
 However, since in a sense all these directories are cruft, they are not
-contained in the default setting (also not in F</etc/find_cruft.pl>).
+contained in the default setting (nor F</usr/lib/find_cruft/find_cruft.pl>).
 Therefore you might want to put this into F</etc/find_cruft.d/99-local.pl>).
 
 =item push(@cut, '/etc/find_cruft.d/99-local.pl');
@@ -335,9 +340,8 @@ my %valid_types = ();
 # Default for the Options:
 
 my @configs = (
-	'$/etc/find_cruft.pl',
-	'$$/etc/find_cruft.d',
-	'~/.find_cruft.pl'
+	'$/etc/find_cruft.pl|$/usr/lib/find_cruft.pl',
+	'$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d',
 );
 my $outputfile = '';
 my $openmode = '>>';
@@ -616,49 +620,44 @@ sub read_cfg_file {
 		unless($ret)
 }
 
-# The main function to read a configuration directory:
-
-sub read_cfg_dir {
-	my ($dir) = @_;
-	$dir = Cwd::abs_path($dir);
-	unless(-d $dir) {
-		&verbose("skipping config dir: $dir (not a directory)");
-		return
-	}
-	&verbose("reading config dir: $dir");
-	my @cfgs;
-	File::Find::find({
-		no_chdir => 1,
-		follow => 1,
-		follow_skip => 2,
-		dangling_symlinks => '',
-		wanted => sub {
-			push(@cfgs, $_) if(m{\.pl$} && (-f $_))
-		}
-	}, ($dir));
-	for my $i (sort(@cfgs)) {
-		&read_cfg_file($i)
-	}
-}
-
 # The main function to read the configuration files:
 
 sub read_cfg {
-	for my $file (@configs) {
-		my $two = substr($file . 'xx', 0, 2);
-		if($two eq '$/') {
-			&read_cfg_file($root . substr($file, 1))
-		} elsif ($two eq '~/') {
-			if(($home //= ($ENV{'HOME'} // '')) ne '') {
-				&read_cfg_file($home . substr($file, 1))
+	my @files = ();
+	for my $paths (@configs) {
+		my %read = ();
+		my @paths = (split(/\|/, $paths));
+		for my $p (@paths) {
+			next if($p eq '');
+			my $first = substr($p, 0, 1);
+			if($first eq '$') {
+				$p = $root . substr($p, 1)
+			} elsif($first eq '~') {
+				next if(($home //= ($ENV{'HOME'} // '')) eq '');
+				$p = $home . substr($p, 1)
 			}
-		} elsif ($two eq '$$') {
-			&read_cfg_dir($root . substr($file, 2))
-		} elsif ($two eq '//') {
-			&read_cfg_dir(substr($file, 1))
-		} else {
-			&read_cfg_file($file)
+			next unless(-r $p);
+			unless(-d $p) {
+				push(@files, $p) if(-f $p);
+				last
+			}
+			opendir(my $dh, $p) || next;
+			my @dir = grep {
+				m{^..*\.pl$} && !exists($read{$_})
+			} readdir($dh);
+			closedir($dh);
+			my @unsorted = ();
+			for my $file (@dir) {
+				my $full = File::Spec->catfile($p, $file);
+				next if((-d $full) || !(-r $full));
+				$read{$file} = 1;
+				push(@unsorted, $full) if(-f $full)
+			}
+			push(@files, sort(@unsorted)) if(@unsorted)
 		}
+	}
+	for my $file (@files) {
+		&read_cfg_file($file)
 	}
 }
 

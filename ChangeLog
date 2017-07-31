@@ -1,5 +1,13 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v4.0.0
+	Martin Väth <martin at mvath.de>:
+	- Change format for specifying configuration files and default list
+	- Read by default config files from /usr/lib/find_cruft as a fallback
+	  default if the files in /etc do not exist or are not readable
+	- Do not read any config file from the home directory by default
+	- Formulate zsh-completion help in a more standard manner
+
 *find_cruft-v3.1.0
 	Martin Väth <martin at mvath.de>:
 	- Fix regression of v3.0.10 which completely broke the package:

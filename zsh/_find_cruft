@@ -4,9 +4,9 @@ _arguments -s -S : \
 '(* -)'{'--man','-\\?'}'[show extended help as a manpage]' \
 '(* -)'{'--version','-V'}'[print version and exit]' \
 '*'{'-v','--verbose'}'[be more verbose (accumulative)]' \
-{'(--root)-r+','(-r)--root='}'[chroot DIR]:root directory:_files -/' \
-'(--nocfg -C)*'{'-c+','--cfg='}'[add CONFIGFILE to list]:configfile:_files' \
+{'(--root)-r+','(-r)--root='}'[use specified dir as root]:root directory:_files -/' \
+'(--nocfg -C)*'{'-c+','--cfg='}'[add specified config file to list]:configfile:_files' \
 {'(--nocfg)-c','(-c)--nocfg'}'[clear list of configfiles]' \
-'(--Output -O '{'--output)-o+','-o)--output='}'[append output to FILE]:outputfile (appending):_files' \
-'(--output -o '{'--Output)-O+','-O)--Output='}'[output to FILE (clobbering)]:outputfile (clobbering):_files' \
+'(--Output -O '{'--output)-o+','-o)--output='}'[append output to specified file]:file:_files' \
+'(--output -o '{'--Output)-O+','-O)--Output='}'[output to specified file (clobbering)]:file:_files' \
 '*:dirs:_files -/'

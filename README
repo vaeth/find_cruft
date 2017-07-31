@@ -17,8 +17,10 @@ in a chroot partition.
 For detailed usage instructions, type B<find_cruft --man> after installing.
 
 For installation just put the content of bin somewhere into your $PATH
-and the content of etc into /etc (or use later a corresponding -c option).
-Put your local customization into /etc/find_cruft.d
+and the content of etc into /usr/lib/find_cruft or into /etc or use
+later a corresponding -c option.
+Put your local customization into /etc/find_cruft.d or /etc/find_cruft.pl
+(this will override the corresponding content of /usr/lib/find_cruft).
 Also put the files of the subdirectory zsh into your $fpath to obtain
 zsh completion support. (If you do not have root access, you can add the
 corresponding directory with fpath+=("...")) before you
