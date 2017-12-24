@@ -1,5 +1,14 @@
 # ChangeLog for find_cruft
 
+*find_cruft-v4.1.0
+	Martin Väth <martin at mvath.de>:
+	- Require symlinks in @symlink to actually contain symlinks (if they
+	  do exist). This way, changing a system to SYMLINK_LIBS=no (like when
+	  upgrading to 17.1 profile) should not require any change in the
+	  configuration file.
+	- Drop some redundant scalar()
+	- Cosmetical source code formatting
+
 *find_cruft-v4.0.0
 	Martin Väth <martin at mvath.de>:
 	- Change format for specifying configuration files and default list

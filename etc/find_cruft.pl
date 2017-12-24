@@ -25,15 +25,15 @@ $ENV{'PRINT_APPEND'} = '';
 # we make this an "our" variable instead of a "my" variable:
 # Use "our $portdir" in subsequent config files if you want to access $portdir.
 our $portdir = remove_root(`eix --print PORTDIR 2>/dev/null`);
-if($portdir eq '') {
+if ($portdir eq '') {
 	# If eix is not available, we try the slower portageq
 	# Note that the last fallback protageq portdir does not honour $root.
 	$portdir = `portageq get_repo_path '$root/' gentoo 2>/dev/null || portageq portdir 2>/dev/null`;
-	$portdir = '' unless(defined($portdir));
+	$portdir = '' unless (defined($portdir));
 	# portageq does append \n, so cut it:
 	chomp($portdir);
 	# If also portageq was not available, we fall back to the default:
-	$portdir = ${root} . '/usr/portage' if($portdir eq '')
+	$portdir = $root . '/usr/portage' if ($portdir eq '')
 }
 # The whole purpose of the business was to add $portdir to @cut:
 push(@cut, $portdir);
@@ -46,21 +46,24 @@ push(@cut, $portdir);
 use Cwd ();
 
 my $kernel_dir = remove_root($ENV{'KERNEL_DIR'});
-$kernel_dir = '/usr/src/linux' if($kernel_dir eq '');
+$kernel_dir = '/usr/src/linux' if ($kernel_dir eq '');
 push(@cut, $kernel_dir);
 push_without_root(@cut, Cwd::abs_path($root . $kernel_dir));
 
 my $kbuild_output = remove_root($ENV{'KBUILD_OUTPUT'});
-if($kbuild_output ne '') {
+if ($kbuild_output ne '') {
 	push(@cut, $kbuild_output);
 	push_without_root(@cut, Cwd::abs_path($root . $kbuild_output))
 }
 
-# The following are standard symlinks on all gentoo systems.
+# The following are standard symlinks on (older) gentoo systems.
 # On x86 systems the /lib64 directory does not exist, but entries with
 # nonexisting destinations are ignored, so it does no harm to add it here.
-# To deal with the unusual setting /lib64->/lib (instead /lib->/lib64),
-# we also add the converse test (which only slows down a bit.
+# The symlinks /lib->/lib64 exists in so-called SYMLINK_LIB=yes setups
+# (profiles older than 17.1).
+# To deal with the unusual setting /lib64->/lib (instead of /lib->/lib64),
+# we also add the converse test: This entry is ignored unless /lib64 is a
+# symlink.
 push(@symlinks,
 	[qw(/usr/doc /usr/share/doc)],
 	[qw(/usr/man /usr/share/man)],
@@ -73,17 +76,23 @@ push(@symlinks,
 
 # However, for /usr/lib64 we better make a separate test, since we also
 # decide whether /usr/lib/gcc-lib or /usr/lib64/gcc-lib is the plain directory:
-if(-d $root . '/usr/lib64') {
-	if(-l $root . '/usr/lib') {  # the usual amd64 case
+my $symlink_libs = ''
+if (-d $root . '/usr/lib64') {
+	if (-l $root . '/usr/lib') {  # the usual SYMLINK_LIB=yes case
+		$symlink_libs = 1;
 		push(@symlinks,
 			[qw(/usr/lib /usr/lib64)],
 			[qw(/usr/lib/gcc /usr/lib64/gcc /usr/lib64/gcc-lib)])
-	} elsif(-l $root . '/usr/lib64') {  # the unusual amd64 case
+	} elsif (-l $root . '/usr/lib64') {  # the unusual /usr/lib64->/usr/lib
+		$symlink_libs = 1;
 		push(@symlinks,
 			[qw(/usr/lib64 /usr/lib)],
 			[qw(/usr/lib/gcc /usr/lib64/gcc /usr/lib/gcc-lib)])
+	} else {  # The SYMLINK_LIB=no case
+		push(@symlinks, [qw(/usr/lib64/gcc /usr/lib64/gcc-lib)])
 	}
-} else {  # The x86 systems case
+}
+unless ($symlink_libs) {  # The SYMLINK_LIB=no or x86 case
 	push(@symlinks, [qw(/usr/lib/gcc /usr/lib/gcc-lib)])
 }
 

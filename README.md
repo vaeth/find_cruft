@@ -20,7 +20,7 @@ For detailed usage instructions, type `find_cruft --man` after installing.
 
 ### Installation
 
-For installation.,just put the content of bin somewhere into your `$PATH`
+For installation, just put the content of bin somewhere into your `$PATH`
 and the content of `etc` into `/usr/lib/find_cruft` or into `/etc` or use
 later a corresponding `-c` option.
 
@@ -31,5 +31,5 @@ __zsh completion__ support. (If you do not have root access, you can add the
 corresponding directory with `fpath+=("...")` before you
 call `compdef` from your __zsh__ initialization files).
 
-For installation under Gentoo, you can use the ebuild from the mv overlay
-(which is available over layman).
+For installation under Gentoo, you can use the ebuild from the mv repository
+(which is available over eselect-repository or layman).

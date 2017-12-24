@@ -1,9 +1,9 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package FindCruft;
-our $VERSION = 'v4.0.0';
+our $VERSION = 'v4.1.0';
 eval { $VERSION = version->declare($VERSION) };
-eval 'use version 0.77; $VERSION = version->declare($VERSION)' if($@);
+eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
 use strict;
 use warnings;
@@ -200,14 +200,17 @@ This array consists of entries of the form
 It means that in the database the path beginnings I<link1> of I<link2>
 correspond due to symlinks to files in I<directory>.
 Only absolute paths are allowed.
-The directory B<$root>I<directory> must indeed exist and not contain any
-symlink in a path component or the entry is ignored.
-(In constrast, I<link1>, I<link2>, ... need not exist to allow that they are
-removed later after an emerge.)
+
+An entry is ignored if B<$root>I<directory> is not an existing directory or
+if any of its path components is a symlink.
+Likewise and contrary, a I<link...> entry is ignored if B<$root>I<link...>
+exists and none of its path components is a symlink.
+(The case that B<$root>I<link...> does not exist is allowed in order to deal
+with the case that a symlink was removed after an emerge.)
 If there are several symlink combinations used, you must list them all here;
-there is intentionally no algorithm which creates combinations since this
-can lead to huge or even endless loops while most combinations are actually
-not necessary.
+there is intentionally no automatism which creates combinations since this
+can lead to huge lists (and a huge slowdown) while most combinations are
+actually not necessary.
 It is not really bad if you forget to add a symlink here: The only negative
 effect is that files installed by ebuilds into the symlink instead of the
 directory will be reported as cruft, so you just see your mistake from
@@ -363,21 +366,21 @@ Getopt::Long::GetOptions(
 	'verbose|v+', \$verbose,
 ) or &pod2usage(2);
 
-&pod2usage(2) unless(scalar(@ARGV));
+&pod2usage(2) unless (@ARGV);
 
 # Sanitize parsed variables:
 
-$root = Cwd::abs_path($root) unless($root eq '');
+$root = Cwd::abs_path($root) unless ($root eq '');
 $root =~ s{\/$}{};
 
 # Append $root to parsed arguments:
 
 for my $dir (@ARGV) {
-	if($dir =~ m{^\/}) {
-		$dir = $root . $dir unless($root eq '')
+	if ($dir =~ m{^\/}) {
+		$dir = $root . $dir unless ($root eq '')
 	}
 	$dir = Cwd::abs_path($dir);
-	&fatal("$dir is not a directory") unless(-d $dir)
+	&fatal("$dir is not a directory") unless (-d $dir)
 }
 
 # Output results of parsing arguments and configs:
@@ -417,7 +420,7 @@ sub push_without_root(\@@) {
 	my ($array, @rest) = @_;
 	for my $i (@rest) {
 		my $j = &remove_root($i);
-		push(@$array, $j) unless($j eq '')
+		push(@$array, $j) unless ($j eq '')
 	}
 }
 
@@ -459,7 +462,7 @@ my @cutexceptions = ();
 
 # Process filesystem:
 
-if($outputfile ne '') {
+if ($outputfile ne '') {
 	open($fh, $openmode, $outputfile) or
 		&fatal("cannot open $openmode$outputfile:", $!);
 	&process_dirs(\@ARGV);
@@ -495,10 +498,10 @@ sub fatal(@) {
 # Second argument: minimal $verbose level (0 if not specified)
 
 sub verbose {
-	return if(($verbose == 0) || ((scalar(@_) >= 2) && ($verbose <= $_[1])));
-	my $data = scalar(@_) ? $_[0] : '';
-	unless(ref($data) eq 'ARRAY') {
-		if($outputfile) {
+	return if (($verbose == 0) || ((scalar(@_) >= 2) && ($verbose <= $_[1])));
+	my $data = @_ ? $_[0] : '';
+	unless (ref($data) eq 'ARRAY') {
+		if ($outputfile) {
 			print($data, "\n")
 		} else {
 			print(STDERR $data, "\n")
@@ -506,11 +509,11 @@ sub verbose {
 		return
 	}
 	my ($title, $ref) = @$data;
-	if(ref($ref) eq 'ARRAY') {
-		return unless(scalar(@$ref));
+	if (ref($ref) eq 'ARRAY') {
+		return unless (@$ref);
 		&verbose('@' . $title . ':');
 		for my $i (@$ref) {
-			if(ref($i) ne 'ARRAY') {
+			if (ref($i) ne 'ARRAY') {
 				&verbose($i)
 			} else {
 				&verbose('[' . join(', ', @$i) . ']')
@@ -519,8 +522,8 @@ sub verbose {
 		&verbose();
 		return
 	}
-	if(ref($ref) eq 'HASH') {
-		return unless(scalar(%$ref));
+	if (ref($ref) eq 'HASH') {
+		return unless (%$ref);
 		&verbose('@' . $title . ':');
 		for my $i (sort(keys(%$ref))) {
 			&verbose($i)
@@ -542,7 +545,7 @@ sub normalized {
 sub transform {
 	my ($array, $hash) = @_;
 	for my $i (@$array) {
-		next unless(($i // '') ne '');
+		next unless (($i // '') ne '');
 		$i = &normalized($i);
 		${$hash}{$i} = undef;
 	}
@@ -554,10 +557,10 @@ sub transform {
 sub compile_re {
 	my ($array, $output) = @_;
 	for my $i (@$array) {
-		next unless(defined($i));
-		if(ref($i) eq 'Regexp') {
+		next unless (defined($i));
+		if (ref($i) eq 'Regexp') {
 			push(@$output, $i)
-		} elsif($i ne '') {
+		} elsif ($i ne '') {
 			push(@$output, qr{$i})
 		}
 	}
@@ -569,17 +572,20 @@ sub compile_re {
 sub prepare_symlinks {
 	my ($array, $output) = @_;
 	for my $i (@$array) {
-		next unless(defined($i) && (ref($i) eq 'ARRAY'));
+		next unless (defined($i) && (ref($i) eq 'ARRAY'));
 		my $r = [];
 		my $last = scalar(@$i) - 1;
-		while(my ($j, $s) = each(@$i)) {
-			next unless(defined($s) && File::Spec->file_name_is_absolute($s));
+		while (my ($j, $s) = each(@$i)) {
+			next unless (defined($s) && File::Spec->file_name_is_absolute($s));
 			$s = &normalized($s);
-			if($j < $last) {
-				push(@$r, $s)
-			} elsif(scalar($r)) {
+			if ($j < $last) {
+				my $source = $root . $s;
+				if ((!(-e $source)) || (Cwd::abs_path($source) ne $source)) {
+					push(@$r, $s)
+				}
+			} elsif (@$r) {
 				my $dest = $root . $s;
-				if((-d $dest) && (Cwd::abs_path($dest) eq $dest)) {
+				if ((-d $dest) && (Cwd::abs_path($dest) eq $dest)) {
 					# destination is dir without symlinks
 					push(@$r, $s);
 					push(@$output, $r)
@@ -596,8 +602,8 @@ sub read_cfg_file {
 	my ($file) = @_;
 	{
 		my $newfile = Cwd::abs_path($file) // '';
-		unless(-f $newfile) {
-			$file = '""' if($file eq '');
+		unless (-f $newfile) {
+			$file = '""' if ($file eq '');
 			&verbose("skipping config file $file (not a file)");
 			return
 		}
@@ -613,11 +619,11 @@ sub read_cfg_file {
 	our @symlinks;
 	FindCruft->import();
 	my $ret = do($file);
-	&fatal("error parsing $file:", $@) if($@);
-	&fatal("failed to read $file:", $!) unless(defined($ret));
+	&fatal("error parsing $file:", $@) if ($@);
+	&fatal("failed to read $file:", $!) unless (defined($ret));
 	&fatal("failed to run $file",
 		'perhaps the last executed command was not a true expression')
-		unless($ret)
+		unless ($ret)
 }
 
 # The main function to read the configuration files:
@@ -628,17 +634,17 @@ sub read_cfg {
 		my %read = ();
 		my @paths = (split(/\|/, $paths));
 		for my $p (@paths) {
-			next if($p eq '');
+			next if ($p eq '');
 			my $first = substr($p, 0, 1);
-			if($first eq '$') {
+			if ($first eq '$') {
 				$p = $root . substr($p, 1)
-			} elsif($first eq '~') {
-				next if(($home //= ($ENV{'HOME'} // '')) eq '');
+			} elsif ($first eq '~') {
+				next if (($home //= ($ENV{'HOME'} // '')) eq '');
 				$p = $home . substr($p, 1)
 			}
-			next unless(-r $p);
-			unless(-d $p) {
-				push(@files, $p) if(-f $p);
+			next unless (-r $p);
+			unless (-d $p) {
+				push(@files, $p) if (-f $p);
 				last
 			}
 			opendir(my $dh, $p) || next;
@@ -649,11 +655,11 @@ sub read_cfg {
 			my @unsorted = ();
 			for my $file (@dir) {
 				my $full = File::Spec->catfile($p, $file);
-				next if((-d $full) || !(-r $full));
+				next if ((-d $full) || !(-r $full));
 				$read{$file} = 1;
-				push(@unsorted, $full) if(-f $full)
+				push(@unsorted, $full) if (-f $full)
 			}
-			push(@files, sort(@unsorted)) if(@unsorted)
+			push(@files, sort(@unsorted)) if (@unsorted)
 		}
 	}
 	for my $file (@files) {
@@ -664,17 +670,17 @@ sub read_cfg {
 # The main function to process the database tree:
 
 sub wanted_skip {
-	return unless(m{\/CONTENTS$} && open(my $content, '<', $_));
-	while(<$content>) {
+	return unless (m{\/CONTENTS$} && open(my $content, '<', $_));
+	while (<$content>) {
 		chomp();
-		next if(length($_) < 4);
+		next if (length($_) < 4);
 		my $type = substr($_, 0, 3);
 		my $path = substr($_, 4);
-		if($type eq 'obj') {
+		if ($type eq 'obj') {
 			$path =~ s{\s+\S+\s+\S+$}{}
-		} elsif($type eq 'sym') {
+		} elsif ($type eq 'sym') {
 			$path =~ s{\s+\-\>\s+.*$}{}
-		} elsif($type ne 'dir') {
+		} elsif ($type ne 'dir') {
 			next
 		}
 		$path = &normalized($path);
@@ -684,18 +690,18 @@ sub wanted_skip {
 			my $length = 0;
 			my $last = scalar(@$i) - 1;
 			my $s;
-			while((my $j, $s) = each(@$i)) {
-				last if($j >= $last);
+			while ((my $j, $s) = each(@$i)) {
+				last if ($j >= $last);
 				my $l = length($s);
-				next if($l > $pathlen);
-				$length = $l if(($length <= $l) && (
+				next if ($l > $pathlen);
+				$length = $l if (($length <= $l) && (
 					(($l == $pathlen) && ($s eq $path)) ||
 					((($s . '/') eq
 						substr($path, 0, $l + 1)))))
 			}
-			next if($length == 0);
+			next if ($length == 0);
 			my $rest = substr($path, $length);
-			if((substr($rest, 0, 1) eq '/') || ($rest eq '')) {
+			if ((substr($rest, 0, 1) eq '/') || ($rest eq '')) {
 				$skip{$s . $rest} = undef
 			}
 		}
@@ -719,7 +725,7 @@ sub fill_skip {
 sub match_array {
 	my ($string, $array) = @_;
 	for my $i (@$array) {
-		return 1 if($$string =~ $i);
+		return 1 if ($$string =~ $i);
 	}
 	return ''
 }
@@ -728,19 +734,19 @@ sub match_array {
 
 sub wanted_files {
 	my $path = &remove_root($_);
-	return if(($path eq '') or ($path eq $rootdir));
-	if(exists($cut{$path}) || &match_array(\$path, \@cutre)) {
-		unless(&match_array(\$path, \@cutexceptions)) {
+	return if (($path eq '') or ($path eq $rootdir));
+	if (exists($cut{$path}) || &match_array(\$path, \@cutre)) {
+		unless (&match_array(\$path, \@cutexceptions)) {
 			$File::Find::prune = 1;
 			return
 		}
 	}
-	if(-l $_) {
-		$File::Find::prune = 1 unless(exists($follow{$path}))
+	if (-l $_) {
+		$File::Find::prune = 1 unless (exists($follow{$path}))
 	}
-	return if(exists($skip{$path}));
+	return if (exists($skip{$path}));
 	$skip{$path} = undef;
-	if(defined($fh)) {
+	if (defined($fh)) {
 		print($fh $path, "\n")
 	} else {
 		print($path, "\n")
