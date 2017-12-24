@@ -76,7 +76,7 @@ push(@symlinks,
 
 # However, for /usr/lib64 we better make a separate test, since we also
 # decide whether /usr/lib/gcc-lib or /usr/lib64/gcc-lib is the plain directory:
-my $symlink_libs = ''
+my $symlink_libs = '';
 if (-d $root . '/usr/lib64') {
 	if (-l $root . '/usr/lib') {  # the usual SYMLINK_LIB=yes case
 		$symlink_libs = 1;

@@ -2,10 +2,14 @@
 
 *find_cruft-v4.1.0
 	Martin Väth <martin at mvath.de>:
+	- Fix typo in default config name /usr/lib/find_cruft/find_cruft.pl
+	- Add also /usr/share/find_cruft/find_cruft{.pl,.d} to optional configs
 	- Require symlinks in @symlink to actually contain symlinks (if they
 	  do exist). This way, changing a system to SYMLINK_LIBS=no (like when
 	  upgrading to 17.1 profile) should not require any change in the
 	  configuration file.
+	- Switch off warnings for File::Find, e.g. if dirs cannot be opened
+	- Fix typo concerning ~ in documentation
 	- Drop some redundant scalar()
 	- Cosmetical source code formatting
 

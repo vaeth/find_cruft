@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package FindCruft;
-our $VERSION = 'v4.1.0';
+our $VERSION = 'v5.0.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -140,14 +140,14 @@ The default config-files are (read in this order):
 
 =over 8
 
-=item F<$/etc/find_cruft.pl|$/usr/lib/find_cruft/find_cruft.pl>
+=item F<$/etc/find_cruft.pl|$/usr/lib/find_cruft/find_cruft.pl|$/usr/share/find_cruft/find_cruft.pl>
 
-=item F<$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d>
+=item F<$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d|$/usr/share/find_cruft/find_cruft.d>
 
 =back
 
 The magic beginning B<$> means the value specified in B<--root>,
-and the magic beginning $B<~> (not used in the defaults) means the user's
+and the magic beginning B<~> (not used in the defaults) means the user's
 home directory.
 If the path is a directory, all files in this directory of the form B<*.pl>
 and not starting with a dot are read.
@@ -343,8 +343,8 @@ my %valid_types = ();
 # Default for the Options:
 
 my @configs = (
-	'$/etc/find_cruft.pl|$/usr/lib/find_cruft.pl',
-	'$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d',
+	'$/etc/find_cruft.pl|$/usr/lib/find_cruft/find_cruft.pl|$/usr/share/find_cruft/find_cruft.pl',
+	'$/etc/find_cruft.d|$/usr/lib/find_cruft/find_cruft.d|$/usr/share/find_cruft/find_cruft.d',
 );
 my $outputfile = '';
 my $openmode = '>>';
@@ -759,6 +759,7 @@ sub process_dirs {
 	my ($dirs) = @_;
 	&verbose('Processing file tree');
 	&verbose('');
+	no warnings 'File::Find';
 	File::Find::find({
 		no_chdir => 1,
 		follow_fast => 1,
