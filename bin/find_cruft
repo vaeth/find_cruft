@@ -1,7 +1,7 @@
 #!/usr/bin/env perl
 BEGIN { require 5.008 }
 package FindCruft;
-our $VERSION = 'v5.0.0';
+our $VERSION = 'v5.1.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 
@@ -575,7 +575,8 @@ sub prepare_symlinks {
 		next unless (defined($i) && (ref($i) eq 'ARRAY'));
 		my $r = [];
 		my $last = scalar(@$i) - 1;
-		while (my ($j, $s) = each(@$i)) {
+		for (my $j = 0; $j < @$i; ++$j) {
+			my $s = $i->[$j];
 			next unless (defined($s) && File::Spec->file_name_is_absolute($s));
 			$s = &normalized($s);
 			if ($j < $last) {
@@ -690,7 +691,8 @@ sub wanted_skip {
 			my $length = 0;
 			my $last = scalar(@$i) - 1;
 			my $s;
-			while ((my $j, $s) = each(@$i)) {
+			for (my $j = 0; $j < @$i; ++$j) {
+				$s = $i->[$j];
 				last if ($j >= $last);
 				my $l = length($s);
 				next if ($l > $pathlen);

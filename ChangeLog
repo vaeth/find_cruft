@@ -1,6 +1,17 @@
 # ChangeLog for find_cruft
 
-*find_cruft-v4.1.0
+*find_cruft-5.1
+	Martin Väth <martin at mvath.de>:
+	- Do not use ($i, $a) = each for arrays, since it requires perl-5.12,
+	  and moreover, unspecified problems have been reported by coseltech,
+	  see https://github.com/vaeth/find_cruft/issues/2
+
+*find_cruft-5
+	Martin Väth <martin at mvath.de>:
+	- Fix/extend default config file names
+	- Prepare for SYMLINK_LIBS=no
+
+*find_cruft-4.1.0
 	Martin Väth <martin at mvath.de>:
 	- Fix typo in default config name /usr/lib/find_cruft/find_cruft.pl
 	- Add also /usr/share/find_cruft/find_cruft{.pl,.d} to optional configs
@@ -13,7 +24,7 @@
 	- Drop some redundant scalar()
 	- Cosmetical source code formatting
 
-*find_cruft-v4.0.0
+*find_cruft-4.0.0
 	Martin Väth <martin at mvath.de>:
 	- Change format for specifying configuration files and default list
 	- Read by default config files from /usr/lib/find_cruft as a fallback
@@ -21,48 +32,48 @@
 	- Do not read any config file from the home directory by default
 	- Formulate zsh-completion help in a more standard manner
 
-*find_cruft-v3.1.0
+*find_cruft-3.1.0
 	Martin Väth <martin at mvath.de>:
-	- Fix regression of v3.0.10 which completely broke the package:
+	- Fix regression of 3.0.10 which completely broke the package:
 	- Handle $VERSION workaround correctly
 
-*find_cruft-v3.0.10
+*find_cruft-3.0.10
 	Martin Väth <martin at mvath.de>:
 	- Force utf8 in manpage
 	- Lower required perl version
 	- Check perl version at compile time
 
-*find_cruft-v3.0.9
+*find_cruft-3.0.9
 	Martin Väth <martin at mvath.de>:
 	- Work (rudimentary) if no config file is read
 
-*find_cruft-v3.0.8
+*find_cruft-3.0.8
 	Martin Väth <martin at mvath.de>:
 	- Syntactic micro-optimization
 
-*find_cruft-v3.0.7
+*find_cruft-3.0.7
 	Martin Väth <martin at mvath.de>:
 	- Prefer each() and join() over index bookkeeping
 
-*find_cruft-v3.0.6
+*find_cruft-3.0.6
 	Martin Väth <martin at mvath.de>:
 	- Fix --Output (no_case_ignore)
 
-*find_cruft-v3.0.5
+*find_cruft-3.0.5
 	Martin Väth <martin at mvath.de>:
 	- Fix --output --Output -o -O
 	- use gnu_getopt
 
-*find_cruft-v3.0.4
+*find_cruft-3.0.4
 	Martin Väth <martin at mvath.de>:
-	- Fix wrong usage of "main". Regression since v3.0.1
+	- Fix wrong usage of "main". Regression since 3.0.1
 
-*find_cruft-v3.0.3
+*find_cruft-3.0.3
 	Martin Väth <martin at mvath.de>:
 	- require pod2usage only if necessary; don't use version
 	- Replace 'EOF' by 1 to avoid stupid new perl warning
 
-*find_cruft-v3.0.1
+*find_cruft-3.0.1
 	Martin Väth <martin at mvath.de>:
 	- Use perl-5.12 package versioning, dotted-decimal version
 	- Require correct perl/module versions
