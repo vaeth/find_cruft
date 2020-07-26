@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
+# SPDX-License-Identifier: BSD-3-Clause
 BEGIN { require 5.008 }
 package FindCruft;
-our $VERSION = 'v5.1.0';
+our $VERSION = 'v5.2.0';
 eval { $VERSION = version->declare($VERSION) };
 eval 'use version 0.77; $VERSION = version->declare($VERSION)' if ($@);
 

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 
 # The following directories should never be scanned for cruft-files:
 push(@cut, qw(

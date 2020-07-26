@@ -1,5 +1,9 @@
 # ChangeLog for find_cruft
 
+*find_cruft-5.2
+	Martin Väth <martin at mvath.de>:
+	- Add SPDX-License-Identifier
+
 *find_cruft-5.1
 	Martin Väth <martin at mvath.de>:
 	- Do not use ($i, $a) = each for arrays, since it requires perl-5.12,

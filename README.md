@@ -2,9 +2,10 @@
 
 Find cruft files on Gentoo and similar distributions
 
-Author: Martin V�th (martin at mvath.de).
+Author: Martin Väth (martin at mvath.de).
 
-This project is under the BSD license.
+This project is under the BSD license 2.0 (“3-clause BSD license”).
+SPDX-License-Identifier: BSD-3-Clause
 
 Gentoo records all installed files in a database.
 Files not stored in this database are either manually installed or

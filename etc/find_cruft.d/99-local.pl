@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: BSD-3-Clause
 # This is a sample local configuration file for find_cruft;
 # probably there is a more generic configuration in /etc/find_cruft.pl
 
